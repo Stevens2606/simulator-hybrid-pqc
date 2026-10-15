@@ -1,0 +1,6 @@
+flask
+cryptography
+pillow
+numpy
+psutil
+liboqs-python

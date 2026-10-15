@@ -1,0 +1,9 @@
+# Lingkungan Python (dibuat ulang dengan: pip install -r requirements.txt)
+venv/
+venv-wsl/
+__pycache__/
+*.pyc
+
+# Citra uji (dataset punya lisensi sendiri; data RS tidak boleh diunggah)
+contoh_citra/
+dataset/
