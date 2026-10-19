@@ -131,7 +131,7 @@ def tandatangani_ulang_kunci_penyerang(img, paket, **_):
     kombinasi = json.loads(paket)["kombinasi"]
     kunci_penyerang = hybrid.bangkitkan_kunci(kombinasi)
     nilai_hash = citra.hitung_hash(img)
-    sig_e, sig_p = hybrid.tandatangani(kunci_penyerang, nilai_hash)
+    sig_e, sig_p = hybrid.tandatangani(nilai_hash, kunci_penyerang)
     return citra.simpan_png(img, citra.buat_paket(kombinasi, sig_e, sig_p))
 
 
