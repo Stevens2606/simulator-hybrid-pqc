@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block isi %}
+<h1>Verifikasi File Eksternal</h1>
+<p class="sub">Unggah citra PNG dari luar simulator, misalnya citra yang sebelumnya diunduh lalu diubah dengan aplikasi lain.</p>
+{% if pesan %}<div class="pesan">{{ pesan }}</div>{% endif %}
+{% if not ada_kunci %}<div class="pesan">Belum ada kunci pada sesi ini. Citra hanya dapat dinyatakan VALID jika ditandatangani pada sesi yang sama.</div>{% endif %}
+<div class="grid">
+  <div class="kartu">
+    <form method="post" enctype="multipart/form-data">
+      <label for="citra">Citra yang akan diperiksa (PNG)</label>
+      <input type="file" id="citra" name="citra" accept=".png,.jpg,.jpeg" required>
+      <button type="submit">Verifikasi</button>
+    </form>
+    {% if hasil %}
+      <h2 style="margin-top:18px">Isi paket</h2>
+      {% if paket %}
+        <table>
+          <tr><th>Kombinasi</th><td>{{ paket.kombinasi }}</td></tr>
+          <tr><th>Panjang σ<sub>1</sub> / σ<sub>2</sub></th><td>{{ paket.sig_ecdsa }} byte / {{ paket.sig_pqc }} byte</td></tr>
+        </table>
+      {% else %}<p class="kecil">Paket tanda tangan tidak terbaca.</p>{% endif %}
+      <img class="pratinjau" style="margin-top:12px" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Citra yang diperiksa">
+    {% endif %}
+  </div>
+  <div class="kartu">
+    <h2>Hasil verifikasi</h2>
+    {% if hasil %}
+      <p class="kecil">File: <b>{{ hasil.nama }}</b></p>
+      {% include "_hasil.html" %}
+    {% else %}<p class="kecil">Belum ada verifikasi.</p>{% endif %}
+    <div class="pesan" style="margin-top:14px"><b>Kemungkinan hasil lain:</b> tanda tangan tidak ditemukan,
+      paket rusak atau tidak lengkap, atau kunci publik untuk kombinasi tersebut tidak tersedia pada sesi.</div>
+  </div>
+</div>
+{% endblock %}

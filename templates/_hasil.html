@@ -1,0 +1,15 @@
+<div class="status {{ 'valid' if hasil.status == 'VALID' else 'tidak' }}">
+  <b class="besar">{{ hasil.status }}</b>
+  {% if hasil.harapan %}<span class="kecil"> &nbsp;(harapan: {{ hasil.harapan }}
+    {% if hasil.status == hasil.harapan %}✔ sesuai{% else %}✘ tidak sesuai{% endif %})</span>{% endif %}
+</div>
+<table>
+  <tr><th>Tanda tangan ECDSA (σ<sub>1</sub>)</th><td>
+    {% if hasil.ecdsa is none %}<span class="kecil">tidak diperiksa</span>
+    {% elif hasil.ecdsa %}<span class="lencana ya">✔ cocok</span>{% else %}<span class="lencana tdk">✘ tidak cocok</span>{% endif %}</td></tr>
+  <tr><th>Tanda tangan PQC (σ<sub>2</sub>)</th><td>
+    {% if hasil.pqc is none %}<span class="kecil">tidak diperiksa</span>
+    {% elif hasil.pqc %}<span class="lencana ya">✔ cocok</span>{% else %}<span class="lencana tdk">✘ tidak cocok</span>{% endif %}</td></tr>
+  <tr><th>Alasan</th><td>{{ hasil.alasan }}</td></tr>
+  <tr><th>Waktu verifikasi</th><td>{{ '%.3f'|format(hasil.waktu_ms) }} ms</td></tr>
+</table>

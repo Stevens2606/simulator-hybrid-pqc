@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block isi %}
+<h1>Status dan Verifikasi</h1>
+<p class="sub">Pilih citra yang telah ditandatangani pada sesi ini, pilih manipulasi atau tanpa manipulasi, lalu verifikasi.</p>
+{% if pesan %}<div class="pesan">{{ pesan }}</div>{% endif %}
+{% if not daftar %}
+  <div class="pesan">Belum ada citra yang ditandatangani pada sesi ini. Silakan tandatangani citra terlebih dahulu di halaman
+    <a href="{{ url_for('sign') }}">Sign Citra</a>.</div>
+{% else %}
+<div class="grid">
+  <div class="kartu">
+    <form method="post">
+      <h2>Citra bertanda tangan pada sesi ini</h2>
+      <div class="daftar">
+      {% for c in daftar|reverse %}
+        <label><input type="radio" name="citra" value="{{ c.id }}"
+          {% if (dipilih and dipilih.id == c.id) or (not dipilih and loop.first) %}checked{% endif %}>
+          {{ c.info.nama }} <span class="kecil">· {{ KOMBINASI[c.info.kombinasi].label }} · {{ c.info.waktu }}</span></label>
+      {% endfor %}
+      </div>
+      <label for="manipulasi">Manipulasi sebelum verifikasi</label>
+      <select id="manipulasi" name="manipulasi">
+        <option value="tanpa">Tanpa manipulasi (harapan VALID)</option>
+        <optgroup label="Manipulasi citra (harapan TIDAK VALID)">
+          {% for nama in m_citra %}<option value="{{ nama }}" {{ "selected" if jenis == nama }}>{{ nama }}</option>{% endfor %}
+        </optgroup>
+        <optgroup label="Manipulasi tanda tangan (harapan TIDAK VALID)">
+          {% for nama in m_ttd %}<option value="{{ nama }}" {{ "selected" if jenis == nama }}>{{ nama }}</option>{% endfor %}
+        </optgroup>
+      </select>
+      <button type="submit">Verifikasi</button>
+    </form>
+  </div>
+  <div class="kartu">
+    <h2>Hasil verifikasi</h2>
+    {% if hasil %}
+      <p class="kecil">Manipulasi: <b>{{ hasil.manipulasi }}</b></p>
+      {% include "_hasil.html" %}
+    {% else %}
+      <p class="kecil">Belum ada verifikasi.</p>
+    {% endif %}
+  </div>
+</div>
+{% if hasil %}
+<div class="grid">
+  <div class="kartu"><h2>Citra asli (bertanda tangan)</h2>
+    <img class="pratinjau" src="{{ url_for('gambar', id_citra=dipilih.id) }}" alt="Citra asli"></div>
+  <div class="kartu"><h2>Citra yang diverifikasi</h2>
+    <img class="pratinjau" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Citra yang diverifikasi"></div>
+</div>
+{% endif %}
+{% endif %}
+{% endblock %}

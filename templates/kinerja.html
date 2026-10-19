@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block isi %}
+<h1>Perbandingan Kinerja Kombinasi pada Sesi Ini</h1>
+<p class="sub">Nilai berasal dari proses yang dijalankan pada sesi ini, sehingga dipengaruhi oleh ukuran citra yang digunakan dan jumlah percobaan. Perbandingan yang adil hanya dapat dilakukan jika ketiga kombinasi diuji dengan citra yang sama. Data penelitian diambil menggunakan script pengujian (90 citra × 10 kali).</p>
+{% if not baris %}
+  <div class="pesan">Belum ada data untuk dibandingkan. Tandatangani citra dengan satu atau lebih kombinasi terlebih dahulu.</div>
+{% else %}
+<div class="kartu">
+  <table>
+    <tr><th>Metrik</th>{% for b in baris %}<th class="angka">{{ KOMBINASI[b.kombinasi].label }}</th>{% endfor %}</tr>
+    <tr><td>Jumlah penandatanganan / verifikasi</td>{% for b in baris %}<td class="angka">{{ b.n_ttd }} / {{ b.n_ver }}</td>{% endfor %}</tr>
+    <tr><td>Waktu pembangkitan kunci (ms)</td>{% for b in baris %}<td class="angka">{{ '%.3f'|format(b.keygen) }}</td>{% endfor %}</tr>
+    <tr><td>Waktu tanda tangan ECDSA + PQC (ms)</td>{% for b in baris %}<td class="angka"><b>{{ '%.3f'|format(b.ttd) }}</b></td>{% endfor %}</tr>
+    <tr><td>Waktu penandatanganan total (ms)</td>{% for b in baris %}<td class="angka">{{ '%.3f'|format(b.total) }}</td>{% endfor %}</tr>
+    <tr><td>Waktu verifikasi (ms)</td>{% for b in baris %}<td class="angka"><b>{{ '%.3f'|format(b.verif) }}</b></td>{% endfor %}</tr>
+    <tr><td>Kunci publik PQC (byte)</td>{% for b in baris %}<td class="angka">{{ b.kunci.pqc_publik }}</td>{% endfor %}</tr>
+    <tr><td>Tanda tangan PQC (byte)</td>{% for b in baris %}<td class="angka">{{ b.sig_pqc }}</td>{% endfor %}</tr>
+    <tr><td>Pertambahan ukuran file (byte)</td>{% for b in baris %}<td class="angka">{{ '%.0f'|format(b.pertambahan) }}</td>{% endfor %}</tr>
+  </table>
+</div>
+<div class="grid">
+  <div class="kartu"><h2>Waktu tanda tangan (ms)</h2>
+    {% for b in baris %}<div class="kecil">{{ KOMBINASI[b.kombinasi].label }} · {{ '%.3f'|format(b.ttd) }} ms</div>
+      <div class="grafik" style="width:{{ 100 * b.ttd / maks_ttd }}%; background:{{ ['#5B7DB1','#E39B3A','#5BA36B'][loop.index0 % 3] }}; margin:4px 0 10px"></div>{% endfor %}
+  </div>
+  <div class="kartu"><h2>Waktu verifikasi (ms)</h2>
+    {% for b in baris %}<div class="kecil">{{ KOMBINASI[b.kombinasi].label }} · {{ '%.3f'|format(b.verif) }} ms</div>
+      <div class="grafik" style="width:{{ 100 * b.verif / maks_ver }}%; background:{{ ['#5B7DB1','#E39B3A','#5BA36B'][loop.index0 % 3] }}; margin:4px 0 10px"></div>{% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endblock %}

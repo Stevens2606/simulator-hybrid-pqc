@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+{% block isi %}
+<h1>Penandatanganan Citra</h1>
+<p class="sub">Unggah citra rontgen dan pilih kombinasi hybrid. Kedua tanda tangan disimpan pada metadata PNG tanpa mengubah nilai piksel.</p>
+{% if pesan %}<div class="pesan">{{ pesan }}</div>{% endif %}
+<div class="grid">
+  <div class="kartu">
+    <h2>Masukan</h2>
+    <form method="post" enctype="multipart/form-data">
+      <label for="citra">Citra rontgen (JPEG atau PNG)</label>
+      <input type="file" id="citra" name="citra" accept=".jpg,.jpeg,.png" required>
+      <label for="kombinasi">Kombinasi hybrid</label>
+      <select id="kombinasi" name="kombinasi">
+        {% for id, k in KOMBINASI.items() %}<option value="{{ id }}">{{ k.label }}</option>{% endfor %}
+      </select>
+      <button type="submit">Tandatangani</button>
+    </form>
+    <p class="kecil" style="margin-top:14px">Kunci dibangkitkan satu kali untuk setiap kombinasi pada sesi ini.
+      Kunci privat tetap di server, sedangkan kunci publik disimpan pada sesi untuk verifikasi.</p>
+  </div>
+  <div class="kartu">
+    <h2>Hasil penandatanganan</h2>
+    {% if hasil %}
+      <div class="status valid"><b>✔ Berhasil ditandatangani</b><br><span class="kecil">{{ KOMBINASI[hasil.kombinasi].label }}</span></div>
+      <img class="pratinjau" src="{{ url_for('gambar', id_citra=hasil.id) }}" alt="Citra bertanda tangan">
+      <a class="tombol biru" href="{{ url_for('unduh', id_citra=hasil.id) }}">⬇ Unduh citra PNG</a>
+    {% else %}
+      <p class="kecil">Belum ada citra yang ditandatangani.</p>
+    {% endif %}
+  </div>
+</div>
+{% if hasil %}
+<div class="kartu">
+  <h2>Rincian proses</h2>
+  <table>
+    <tr><th>Citra</th><td>{{ hasil.nama }} · {{ hasil.lebar }} × {{ hasil.tinggi }} piksel · mode {{ hasil.mode }}</td></tr>
+    <tr><th>Hash SHA-256 (lebar, tinggi, piksel)</th><td class="mono">{{ hasil.hash }}</td></tr>
+    <tr><th>Tanda tangan ECDSA / PQC</th><td>{{ hasil.sig_ecdsa }} byte / {{ hasil.sig_pqc }} byte</td></tr>
+    <tr><th>Kunci publik ECDSA / PQC</th><td>{{ hasil.kunci.ecdsa_publik }} byte / {{ hasil.kunci.pqc_publik }} byte</td></tr>
+    <tr><th>Kunci privat ECDSA / PQC</th><td>{{ hasil.kunci.ecdsa_privat }} byte / {{ hasil.kunci.pqc_privat }} byte</td></tr>
+    <tr><th>Ukuran file PNG</th><td>tanpa tanda tangan {{ hasil.png_polos }} byte → bertanda tangan {{ hasil.png_bertanda }} byte
+        (bertambah <b>{{ hasil.pertambahan }} byte</b>)</td></tr>
+    <tr><th>Waktu pembangkitan kunci</th><td>{{ '%.3f'|format(hasil.keygen_ms) }} ms</td></tr>
+    <tr><th>Waktu hash</th><td>{{ '%.3f'|format(hasil.hash_ms) }} ms</td></tr>
+    <tr><th>Waktu tanda tangan (ECDSA + PQC)</th><td><b>{{ '%.3f'|format(hasil.ttd_ms) }} ms</b></td></tr>
+    <tr><th>Waktu simpan PNG</th><td>{{ '%.3f'|format(hasil.simpan_ms) }} ms</td></tr>
+    <tr><th>Waktu penandatanganan total</th><td>{{ '%.3f'|format(hasil.total_ms) }} ms</td></tr>
+    <tr><th>Waktu verifikasi</th><td>{{ '%.3f'|format(hasil.verif_ms) }} ms</td></tr>
+  </table>
+  <p class="kecil">Angka pada halaman ini adalah satu kali pengukuran untuk peragaan. Data penelitian diambil menggunakan script pengujian (90 citra × 10 kali).</p>
+</div>
+{% endif %}
+{% endblock %}
