@@ -1,0 +1,25 @@
+﻿Metrik (ms);Kategori;ECDSA + ML-DSA-44;ECDSA + Falcon-512;ECDSA + SLH-DSA-128f
+Waktu pembangkitan kunci;Kecil;0,181 ± 0,114;4,875 ± 1,376;0,916 ± 0,122
+Waktu pembangkitan kunci;Sedang;0,164 ± 0,047;5,140 ± 1,611;0,918 ± 0,104
+Waktu pembangkitan kunci;Besar;0,189 ± 0,079;4,888 ± 1,154;0,954 ± 0,214
+Waktu pembangkitan kunci;Semua;0,178 ± 0,085;4,968 ± 1,397;0,929 ± 0,155
+Waktu tanda tangan (ECDSA + PQC);Kecil;0,185 ± 0,090;0,270 ± 0,066;18,171 ± 0,816
+Waktu tanda tangan (ECDSA + PQC);Sedang;0,196 ± 0,090;0,293 ± 0,082;18,198 ± 0,825
+Waktu tanda tangan (ECDSA + PQC);Besar;0,224 ± 0,099;0,311 ± 0,091;18,671 ± 2,557
+Waktu tanda tangan (ECDSA + PQC);Semua;0,202 ± 0,094;0,291 ± 0,082;18,347 ± 1,636
+Waktu hash;Kecil;0,508 ± 0,181;0,461 ± 0,112;0,451 ± 0,125
+Waktu hash;Sedang;1,016 ± 0,228;0,905 ± 0,333;0,883 ± 0,183
+Waktu hash;Besar;2,038 ± 0,934;1,887 ± 0,865;1,867 ± 0,787
+Waktu hash;Semua;1,188 ± 0,851;1,085 ± 0,803;1,067 ± 0,757
+Waktu simpan PNG;Kecil;58,832 ± 14,808;57,643 ± 14,662;57,534 ± 14,565
+Waktu simpan PNG;Sedang;111,287 ± 19,731;111,229 ± 19,623;111,440 ± 19,978
+Waktu simpan PNG;Besar;214,264 ± 63,150;213,336 ± 62,982;218,631 ± 72,208
+Waktu simpan PNG;Semua;128,128 ± 75,510;127,403 ± 75,461;129,202 ± 80,159
+Waktu penandatanganan total;Kecil;59,525 ± 14,899;58,374 ± 14,718;76,157 ± 14,560
+Waktu penandatanganan total;Sedang;112,499 ± 19,833;112,428 ± 19,775;130,521 ± 20,241
+Waktu penandatanganan total;Besar;216,527 ± 63,973;215,534 ± 63,629;239,170 ± 72,804
+Waktu penandatanganan total;Semua;129,517 ± 76,313;128,779 ± 76,181;148,616 ± 81,039
+Waktu verifikasi;Kecil;0,756 ± 0,215;0,702 ± 0,143;1,783 ± 0,191
+Waktu verifikasi;Sedang;1,283 ± 0,261;1,120 ± 0,218;2,223 ± 0,298
+Waktu verifikasi;Besar;2,219 ± 0,899;2,056 ± 0,809;3,212 ± 1,029
+Waktu verifikasi;Semua;1,419 ± 0,821;1,292 ± 0,749;2,406 ± 0,867

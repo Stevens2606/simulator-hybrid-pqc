@@ -3,4 +3,4 @@ cryptography
 pillow
 numpy
 psutil
-liboqs-python
+liboqs-pythonopenpyxl==3.1.5
