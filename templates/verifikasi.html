@@ -1,52 +1,120 @@
 {% extends "base.html" %}
 {% block isi %}
-<h1>Status dan Verifikasi</h1>
-<p class="sub">Pilih citra yang telah ditandatangani pada sesi ini, pilih manipulasi atau tanpa manipulasi, lalu verifikasi.</p>
-{% if pesan %}<div class="pesan">{{ pesan }}</div>{% endif %}
+<div class="mb-4">
+  <h1 class="h3 judul-halaman mb-1"><i class="bi bi-patch-check me-2"></i>Status and Verification</h1>
+  <p class="text-secondary mb-0">Simulation of sending an image from the <b>sender</b> to the <b>receiver</b>. Choose a signed image,
+    choose what happens to it in transit (or no disturbance), then see the verification result on the receiver side.</p>
+</div>
+{% if pesan %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ pesan }}</div>{% endif %}
+
 {% if not daftar %}
-  <div class="pesan">Belum ada citra yang ditandatangani pada sesi ini. Silakan tandatangani citra terlebih dahulu di halaman
-    <a href="{{ url_for('sign') }}">Sign Citra</a>.</div>
+  <div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>No image has been signed in this session yet. Please sign an image first on the
+    <a href="{{ url_for('sign') }}" class="alert-link">Sign Image</a> page.</div>
 {% else %}
-<div class="grid">
-  <div class="kartu">
-    <form method="post">
-      <h2>Citra bertanda tangan pada sesi ini</h2>
-      <div class="daftar">
-      {% for c in daftar|reverse %}
-        <label><input type="radio" name="citra" value="{{ c.id }}"
-          {% if (dipilih and dipilih.id == c.id) or (not dipilih and loop.first) %}checked{% endif %}>
-          {{ c.info.nama }} <span class="kecil">· {{ KOMBINASI[c.info.kombinasi].label }} · {{ c.info.waktu }}</span></label>
-      {% endfor %}
+
+<!-- Form: choose image and disturbance in transit -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="post" class="row g-3 align-items-end">
+      <div class="col-lg-5">
+        <label for="citra" class="form-label fw-semibold">1. Select sent image</label>
+        <select class="form-select" id="citra" name="citra">
+        {% for c in daftar|reverse %}
+          <option value="{{ c.id }}" {% if (dipilih and dipilih.id == c.id) or (not dipilih and loop.first) %}selected{% endif %}>
+            {{ c.info.nama }} · {{ KOMBINASI[c.info.kombinasi].label }} · {{ c.info.waktu }}</option>
+        {% endfor %}
+        </select>
       </div>
-      <label for="manipulasi">Manipulasi sebelum verifikasi</label>
-      <select id="manipulasi" name="manipulasi">
-        <option value="tanpa">Tanpa manipulasi (harapan VALID)</option>
-        <optgroup label="Manipulasi citra (harapan TIDAK VALID)">
-          {% for nama in m_citra %}<option value="{{ nama }}" {{ "selected" if jenis == nama }}>{{ nama }}</option>{% endfor %}
-        </optgroup>
-        <optgroup label="Manipulasi tanda tangan (harapan TIDAK VALID)">
-          {% for nama in m_ttd %}<option value="{{ nama }}" {{ "selected" if jenis == nama }}>{{ nama }}</option>{% endfor %}
-        </optgroup>
-      </select>
-      <button type="submit">Verifikasi</button>
+      <div class="col-lg-5">
+        <label for="manipulasi" class="form-label fw-semibold">2. Disturbance in transit</label>
+        <select class="form-select" id="manipulasi" name="manipulasi">
+          <option value="tanpa">None: the image arrives unchanged (expected VALID)</option>
+          <optgroup label="Image manipulation (expected INVALID)">
+            {% for nama in m_citra %}<option value="{{ nama }}" {{ "selected" if jenis == nama }}>{{ en_manipulasi(nama) }}</option>{% endfor %}
+          </optgroup>
+          <optgroup label="Signature manipulation (expected INVALID)">
+            {% for nama in m_ttd %}<option value="{{ nama }}" {{ "selected" if jenis == nama }}>{{ en_manipulasi(nama) }}</option>{% endfor %}
+          </optgroup>
+        </select>
+      </div>
+      <div class="col-lg-2 d-grid">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-shield-check me-1"></i>Verify</button>
+      </div>
     </form>
   </div>
-  <div class="kartu">
-    <h2>Hasil verifikasi</h2>
-    {% if hasil %}
-      <p class="kecil">Manipulasi: <b>{{ hasil.manipulasi }}</b></p>
-      {% include "_hasil.html" %}
-    {% else %}
-      <p class="kecil">Belum ada verifikasi.</p>
-    {% endif %}
-  </div>
 </div>
+
 {% if hasil %}
-<div class="grid">
-  <div class="kartu"><h2>Citra asli (bertanda tangan)</h2>
-    <img class="pratinjau" src="{{ url_for('gambar', id_citra=dipilih.id) }}" alt="Citra asli"></div>
-  <div class="kartu"><h2>Citra yang diverifikasi</h2>
-    <img class="pratinjau" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Citra yang diverifikasi"></div>
+<!-- Short flow -->
+<div class="row g-2 align-items-stretch mb-4 text-center">
+  <div class="col"><div class="langkah-alur"><b><i class="bi bi-person-check me-1"></i>Sender</b><br>
+    <span class="small text-secondary">original hash → signatures σ<sub>1</sub>, σ<sub>2</sub></span></div></div>
+  <div class="col-auto d-flex align-items-center panah-alur"><i class="bi bi-arrow-right"></i></div>
+  <div class="col"><div class="langkah-alur {{ 'gangguan' if hasil.manipulasi != 'None' }}"><b><i class="bi bi-truck me-1"></i>Transit</b><br>
+    <span class="small text-secondary">{{ 'no disturbance' if hasil.manipulasi == 'None' else hasil.manipulasi }}</span></div></div>
+  <div class="col-auto d-flex align-items-center panah-alur"><i class="bi bi-arrow-right"></i></div>
+  <div class="col"><div class="langkah-alur"><b><i class="bi bi-person-badge me-1"></i>Receiver</b><br>
+    <span class="small text-secondary">recompute hash → check σ<sub>1</sub>, σ<sub>2</sub> → AND rule</span></div></div>
+</div>
+
+<div class="row g-4">
+  <!-- SENDER SIDE -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-send me-1"></i>Sender side: original image before signing</div>
+      <div class="card-body">
+        <img class="pratinjau" src="{{ url_for('gambar_asli', id_citra=dipilih.id) }}" alt="Original image before signing">
+        <table class="table table-sm mt-3 mb-0">
+          <tr><th style="width:35%">Image name</th><td>{{ dipilih.info.nama }} ({{ dipilih.info.lebar }} × {{ dipilih.info.tinggi }} pixels, mode {{ dipilih.info.mode }})</td></tr>
+          <tr><th>Combination</th><td>{{ KOMBINASI[dipilih.info.kombinasi].label }} <span class="badge text-bg-secondary">NIST Level {{ KOMBINASI[dipilih.info.kombinasi].level_nist }}</span></td></tr>
+          <tr><th>Hash at signing (SHA-256)</th><td class="mono">{{ hasil.hash_ttd }}</td></tr>
+          <tr><th>Signatures created</th><td>σ<sub>1</sub> ECDSA: {{ dipilih.info.sig_ecdsa }} bytes<br>
+            σ<sub>2</sub> post-quantum: {{ dipilih.info.sig_pqc }} bytes<br>
+            <span class="small text-secondary">signed with the private keys, then stored inside the PNG file</span></td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- RECEIVER SIDE -->
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-inbox me-1"></i>Receiver side: received image</div>
+      <div class="card-body">
+        <img class="pratinjau" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Received image">
+        <table class="table table-sm mt-3">
+          <tr><th style="width:35%">Recomputed hash</th><td class="mono">
+            {%- for a, b in zip(hasil.hash_ttd, hasil.hash_uji) -%}
+              {%- if a == b -%}{{ b }}{%- else -%}<span class="beda">{{ b }}</span>{%- endif -%}
+            {%- endfor -%}</td></tr>
+          <tr><th>Compared with hash at signing</th><td>
+            {% if hasil.hash_ttd == hasil.hash_uji %}<span class="badge text-bg-success">same</span> <span class="small text-secondary">pixels unchanged</span>
+            {% else %}<span class="badge text-bg-danger">different</span> <span class="small text-secondary">pixels changed (different characters are marked)</span>{% endif %}</td></tr>
+          <tr><th>Signature package</th><td>
+            {% if hasil.ada_paket %}<span class="badge text-bg-success">found</span>{% else %}<span class="badge text-bg-danger">not found</span>{% endif %}</td></tr>
+          <tr><th>Check σ<sub>1</sub> ECDSA with public key</th><td>
+            {% if hasil.ecdsa is none %}<span class="badge text-bg-light border">not checked</span>
+            {% elif hasil.ecdsa %}<span class="badge text-bg-success"><i class="bi bi-check-lg"></i> matched</span>{% else %}<span class="badge text-bg-danger"><i class="bi bi-x-lg"></i> not matched</span>{% endif %}</td></tr>
+          <tr><th>Check σ<sub>2</sub> post-quantum with public key</th><td>
+            {% if hasil.pqc is none %}<span class="badge text-bg-light border">not checked</span>
+            {% elif hasil.pqc %}<span class="badge text-bg-success"><i class="bi bi-check-lg"></i> matched</span>{% else %}<span class="badge text-bg-danger"><i class="bi bi-x-lg"></i> not matched</span>{% endif %}</td></tr>
+          <tr><th>Verification time</th><td>{{ '%.3f'|format(hasil.waktu_ms) }} ms</td></tr>
+        </table>
+        {% set ok = hasil.status == 'VALID' %}
+        <div class="alert {{ 'alert-success' if ok else 'alert-danger' }} mb-0">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi {{ 'bi-shield-fill-check' if ok else 'bi-shield-fill-x' }} fs-2"></i>
+            <div>
+              <span class="status-besar">{{ hasil.status_en }}</span>
+              <span class="small ms-1">(expected: {{ hasil.harapan }}
+                {% if hasil.status_en == hasil.harapan %}<i class="bi bi-check2"></i> as expected{% else %}<i class="bi bi-x"></i> not as expected{% endif %})</span>
+            </div>
+          </div>
+          <div class="small mt-1">AND rule: VALID only if σ<sub>1</sub> and σ<sub>2</sub> both match. <b>Reason:</b> {{ hasil.alasan }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
 </div>
 {% endif %}
 {% endif %}

@@ -1,9 +1,0 @@
-﻿Ukuran (byte);ECDSA + ML-DSA-44;ECDSA + Falcon-512;ECDSA + SLH-DSA-128f
-Kunci publik ECDSA;65;65;65
-Kunci privat ECDSA;32;32;32
-Kunci publik PQC;1.312;897;32
-Kunci privat PQC;2.560;1.281;64
-Tanda tangan ECDSA;71,0 (min 69, maks 72);71,0 (min 69, maks 72);71,0 (min 69, maks 72)
-Tanda tangan PQC;2.420;655,1 (min 650, maks 661);17.088
-Paket tanda tangan (Base64);3.398,0 (min 3.394, maks 3.398);1.045,8 (min 1.039, maks 1.055);22.962,0 (min 22.958, maks 22.962)
-Pertambahan ukuran file;3.426,0 (min 3.422, maks 3.426);1.073,8 (min 1.067, maks 1.083);22.990,0 (min 22.986, maks 22.990)

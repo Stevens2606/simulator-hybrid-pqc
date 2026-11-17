@@ -1,70 +1,70 @@
 <!doctype html>
-<html lang="id">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Simulator Hybrid PQC Citra Medis</title>
+<title>Hybrid Post-Quantum Digital Signature Simulator</title>
+<!-- Bootstrap 5 dan Bootstrap Icons (CDN) -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
 <style>
-  :root { --biru:#33415C; --biru-muda:#E7EEF7; --abu:#5b6472; --garis:#d8dde5;
-          --hijau:#2E6B30; --hijau-muda:#D4EDDA; --merah:#A33; --merah-muda:#F8D7DA; --kuning:#FFF3CD; }
-  * { box-sizing:border-box; }
-  body { margin:0; font-family:"Segoe UI", system-ui, sans-serif; color:#1d232b; background:#f5f7fa; }
-  header { background:var(--biru); color:#fff; }
-  .wrap { max-width:1100px; margin:0 auto; padding:0 20px; }
-  .bar-atas { display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
-  .judul { padding:12px 0; font-size:17px; font-weight:600; }
-  nav { display:flex; gap:6px; flex-wrap:wrap; padding-bottom:10px; }
-  nav a { color:#fff; text-decoration:none; padding:7px 12px; font-size:14px; border:1px solid #ffffff55; border-radius:6px; }
-  nav a.aktif { background:#fff; color:var(--biru); font-weight:600; }
-  .reset { color:#dfe7f3; font-size:12px; }
-  main { padding:22px 0 48px; }
-  h1 { font-size:21px; margin:0 0 4px; }
-  .sub { color:var(--abu); margin:0 0 18px; font-size:14px; }
-  .kartu { background:#fff; border:1px solid var(--garis); border-radius:10px; padding:18px; margin-bottom:16px; }
-  .kartu h2 { font-size:15px; margin:0 0 12px; }
-  .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-  @media (max-width:820px) { .grid { grid-template-columns:1fr; } }
-  label { font-size:14px; font-weight:600; display:block; margin:10px 0 6px; }
-  select, input[type=file] { width:100%; padding:8px; border:1px solid var(--garis); border-radius:6px; background:#fff; font-size:14px; }
-  button, .tombol { display:inline-block; margin-top:14px; background:var(--hijau); color:#fff; border:0; border-radius:6px;
-                    padding:9px 16px; font-size:14px; cursor:pointer; text-decoration:none; }
-  .tombol.biru { background:var(--biru); }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th, td { text-align:left; padding:7px 8px; border-bottom:1px solid var(--garis); vertical-align:top; }
-  th { background:var(--biru-muda); font-weight:600; }
-  td.angka, th.angka { text-align:right; font-variant-numeric:tabular-nums; }
-  .status { border-radius:10px; padding:14px 16px; margin-bottom:14px; border:1px solid; }
-  .status.valid { background:var(--hijau-muda); border-color:var(--hijau); }
-  .status.tidak { background:var(--merah-muda); border-color:var(--merah); }
-  .status b.besar { font-size:22px; }
-  .valid b.besar { color:var(--hijau); } .tidak b.besar { color:var(--merah); }
-  .pesan { background:var(--kuning); border:1px solid #e0b84c; padding:10px 14px; border-radius:6px; margin-bottom:16px; font-size:14px; }
-  img.pratinjau { max-width:100%; border:1px solid var(--garis); border-radius:6px; background:#000; display:block; }
-  .mono { font-family:Consolas, monospace; font-size:12.5px; word-break:break-all; }
-  .kecil { font-size:13px; color:var(--abu); }
-  .lencana { display:inline-block; padding:2px 8px; border-radius:20px; font-size:12px; font-weight:600; }
-  .ya { background:var(--hijau-muda); color:var(--hijau); } .tdk { background:var(--merah-muda); color:var(--merah); }
-  .grafik { height:14px; border-radius:3px; min-width:2px; }
-  .daftar label { font-weight:400; display:flex; gap:8px; align-items:center; margin:6px 0; }
+  :root { --utama:#1F3B57; --utama-muda:#E8EEF6; }
+  body { background:#F4F6FA; }
+  .navbar { background:var(--utama); }
+  .navbar .nav-link { white-space:nowrap; color:#cfd8e6; border-radius:8px; padding:.45rem .8rem; }
+  .navbar .nav-link:hover { color:#fff; background:rgba(255,255,255,.08); }
+  .navbar .nav-link.active { color:var(--utama); background:#fff; font-weight:600; }
+  .judul-halaman { font-weight:700; color:var(--utama); }
+  .card { border:0; border-radius:14px; box-shadow:0 1px 3px rgba(16,24,40,.08), 0 1px 2px rgba(16,24,40,.04); }
+  .card-header { background:#fff; border-bottom:1px solid #eef1f5; font-weight:600; border-radius:14px 14px 0 0 !important; }
+  .kartu-fitur { transition:transform .15s, box-shadow .15s; }
+  .kartu-fitur:hover { transform:translateY(-2px); box-shadow:0 8px 20px rgba(16,24,40,.10); }
+  .ikon-fitur { width:42px; height:42px; border-radius:10px; display:inline-flex; align-items:center; justify-content:center; font-size:1.3rem; }
+  .kotak-input { background:#EAF1FB; border-radius:10px; padding:.75rem .9rem; height:100%; }
+  .kotak-output { background:#E9F6EC; border-radius:10px; padding:.75rem .9rem; height:100%; }
+  .kotak-input ol, .kotak-input ul, .kotak-output ul { margin:.35rem 0 0; padding-left:1.1rem; }
+  .pratinjau { max-width:100%; max-height:420px; border-radius:10px; background:#000; display:block; margin:0 auto; }
+  .mono { font-family:Consolas, "Courier New", monospace; font-size:.82rem; word-break:break-all; }
+  .beda { background:#F8D7DA; color:#B02A37; font-weight:700; border-radius:2px; }
+  .langkah-alur { background:var(--utama-muda); border-radius:12px; padding:.7rem 1rem; text-align:center; height:100%; }
+  .langkah-alur.gangguan { background:#FFF3CD; }
+  .panah-alur { font-size:1.6rem; color:var(--utama); }
+  .angka-besar { font-size:2rem; font-weight:700; color:var(--utama); line-height:1.1; }
+  .status-besar { font-size:1.6rem; font-weight:800; letter-spacing:.5px; }
+  .batang { height:12px; border-radius:6px; min-width:3px; }
+  table.table th { color:#475467; font-weight:600; }
+  footer { color:#98A2B3; }
 </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <div class="bar-atas">
-      <div class="judul">Simulator Hybrid PQC Citra Medis</div>
-      <a class="reset" href="{{ url_for('reset') }}" onclick="return confirm('Hapus semua data sesi ini?')">Reset sesi</a>
+<nav class="navbar navbar-expand-xl navbar-dark shadow-sm">
+  <div class="container-fluid px-4">
+    <a class="navbar-brand fw-semibold d-flex align-items-center gap-2" href="{{ url_for('sign') }}">
+      <i class="bi bi-shield-lock-fill"></i> Hybrid PQ Signature Simulator
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#menu" aria-controls="menu" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="menu">
+      <ul class="navbar-nav me-auto gap-xl-1 mt-2 mt-xl-0">
+        <li class="nav-item"><a class="nav-link {{ 'active' if halaman=='sign' }}" href="{{ url_for('sign') }}"><i class="bi bi-pen me-1"></i>Sign Image</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if halaman=='verifikasi' }}" href="{{ url_for('verifikasi') }}"><i class="bi bi-patch-check me-1"></i>Status and Verification</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if halaman=='eksternal' }}" href="{{ url_for('eksternal') }}"><i class="bi bi-file-earmark-arrow-up me-1"></i>External File Verification</a></li>
+        <li class="nav-item"><a class="nav-link {{ 'active' if halaman=='kinerja' }}" href="{{ url_for('kinerja') }}"><i class="bi bi-bar-chart-line me-1"></i>Performance Comparison</a></li>
+      </ul>
+      <a class="btn btn-sm btn-outline-light" href="{{ url_for('reset') }}" onclick="return confirm('Delete all data in this session?')">
+        <i class="bi bi-arrow-counterclockwise me-1"></i>Reset session</a>
     </div>
-    <nav>
-      <a href="{{ url_for('sign') }}" class="{{ 'aktif' if halaman=='sign' }}">Sign Citra</a>
-      <a href="{{ url_for('verifikasi') }}" class="{{ 'aktif' if halaman=='verifikasi' }}">Status dan Verifikasi</a>
-      <a href="{{ url_for('eksternal') }}" class="{{ 'aktif' if halaman=='eksternal' }}">Verifikasi File Eksternal</a>
-      <a href="{{ url_for('kinerja') }}" class="{{ 'aktif' if halaman=='kinerja' }}">Perbandingan Kinerja</a>
-    </nav>
   </div>
-</header>
-<main class="wrap">
+</nav>
+
+<main class="container py-4">
 {% block isi %}{% endblock %}
 </main>
+
+<footer class="container pb-4 small text-center">
+  ECDSA P-256 + ML-DSA / Falcon / SLH-DSA (liboqs) · Data is kept only during this session.
+</footer>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

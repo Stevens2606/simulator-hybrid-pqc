@@ -1,2 +1,5 @@
 {% extends "base.html" %}
-{% block isi %}<div class="pesan">{{ pesan }}</div><a class="tombol biru" href="{{ url_for('sign') }}">Kembali</a>{% endblock %}
+{% block isi %}
+<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ pesan }}</div>
+<a class="btn btn-primary" href="{{ url_for('sign') }}"><i class="bi bi-arrow-left me-1"></i>Back to Sign Image</a>
+{% endblock %}

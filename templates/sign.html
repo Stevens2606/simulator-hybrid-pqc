@@ -1,53 +1,81 @@
 {% extends "base.html" %}
 {% block isi %}
-<h1>Penandatanganan Citra</h1>
-<p class="sub">Unggah citra rontgen dan pilih kombinasi hybrid. Kedua tanda tangan disimpan pada metadata PNG tanpa mengubah nilai piksel.</p>
-{% if pesan %}<div class="pesan">{{ pesan }}</div>{% endif %}
-<div class="grid">
-  <div class="kartu">
-    <h2>Masukan</h2>
-    <form method="post" enctype="multipart/form-data">
-      <label for="citra">Citra rontgen (JPEG atau PNG)</label>
-      <input type="file" id="citra" name="citra" accept=".jpg,.jpeg,.png" required>
-      <label for="kombinasi">Kombinasi hybrid</label>
-      <select id="kombinasi" name="kombinasi">
-        {% for id, k in KOMBINASI.items() %}<option value="{{ id }}">{{ k.label }}</option>{% endfor %}
-      </select>
-      <button type="submit">Tandatangani</button>
-    </form>
-    <p class="kecil" style="margin-top:14px">Kunci dibangkitkan satu kali untuk setiap kombinasi pada sesi ini.
-      Kunci privat tetap di server, sedangkan kunci publik disimpan pada sesi untuk verifikasi.</p>
+<div class="mb-4">
+  <h1 class="h3 judul-halaman mb-1"><i class="bi bi-pen me-2"></i>Sign Image</h1>
+  <p class="text-secondary mb-0">Upload an X-ray image and choose a hybrid combination. Both signatures are stored in the PNG metadata without changing the pixel values.</p>
+</div>
+{% if pesan %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ pesan }}</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-upload me-1"></i>Input</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          <div class="mb-3">
+            <label for="citra" class="form-label fw-semibold">X-ray image (JPEG)</label>
+            <input class="form-control" type="file" id="citra" name="citra" accept=".jpg,.jpeg" required>
+          </div>
+          <div class="mb-3">
+            <label for="kombinasi" class="form-label fw-semibold">Hybrid combination ({{ KOMBINASI|length }} options)</label>
+            <select class="form-select" id="kombinasi" name="kombinasi">
+              {% for algoritma, daftar in kelompok %}
+              <optgroup label="{{ algoritma }}">
+                {% for id, k in daftar %}<option value="{{ id }}" {{ "selected" if dipilih == id }}>{{ k.label }} (NIST Level {{ k.level_nist }})</option>{% endfor %}
+              </optgroup>
+              {% endfor %}
+            </select>
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-pen me-1"></i>Sign Image</button>
+        </form>
+        <p class="small text-secondary mt-3 mb-0"><i class="bi bi-key me-1"></i>Keys are generated once for each combination in this session.
+          The private key stays on the server, while the public key is kept in the session for verification.</p>
+      </div>
+    </div>
   </div>
-  <div class="kartu">
-    <h2>Hasil penandatanganan</h2>
-    {% if hasil %}
-      <div class="status valid"><b>✔ Berhasil ditandatangani</b><br><span class="kecil">{{ KOMBINASI[hasil.kombinasi].label }}</span></div>
-      <img class="pratinjau" src="{{ url_for('gambar', id_citra=hasil.id) }}" alt="Citra bertanda tangan">
-      <a class="tombol biru" href="{{ url_for('unduh', id_citra=hasil.id) }}">⬇ Unduh citra PNG</a>
-    {% else %}
-      <p class="kecil">Belum ada citra yang ditandatangani.</p>
-    {% endif %}
+
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-image me-1"></i>Signing result</div>
+      <div class="card-body">
+        {% if hasil %}
+          <div class="alert alert-success d-flex align-items-center gap-2 py-2">
+            <i class="bi bi-check-circle-fill fs-5"></i>
+            <div><b>Successfully signed</b><br><span class="small">{{ KOMBINASI[hasil.kombinasi].label }} · NIST Level {{ KOMBINASI[hasil.kombinasi].level_nist }}</span></div>
+          </div>
+          <img class="pratinjau" src="{{ url_for('gambar', id_citra=hasil.id) }}" alt="Signed image">
+          <a class="btn btn-outline-primary mt-3" href="{{ url_for('unduh', id_citra=hasil.id) }}"><i class="bi bi-download me-1"></i>Download Signed PNG</a>
+        {% else %}
+          <div class="text-center text-secondary py-5"><i class="bi bi-image fs-1 d-block mb-2"></i>No image has been signed yet.</div>
+        {% endif %}
+      </div>
+    </div>
   </div>
 </div>
+
 {% if hasil %}
-<div class="kartu">
-  <h2>Rincian proses</h2>
-  <table>
-    <tr><th>Citra</th><td>{{ hasil.nama }} · {{ hasil.lebar }} × {{ hasil.tinggi }} piksel · mode {{ hasil.mode }}</td></tr>
-    <tr><th>Hash SHA-256 (lebar, tinggi, piksel)</th><td class="mono">{{ hasil.hash }}</td></tr>
-    <tr><th>Tanda tangan ECDSA / PQC</th><td>{{ hasil.sig_ecdsa }} byte / {{ hasil.sig_pqc }} byte</td></tr>
-    <tr><th>Kunci publik ECDSA / PQC</th><td>{{ hasil.kunci.ecdsa_publik }} byte / {{ hasil.kunci.pqc_publik }} byte</td></tr>
-    <tr><th>Kunci privat ECDSA / PQC</th><td>{{ hasil.kunci.ecdsa_privat }} byte / {{ hasil.kunci.pqc_privat }} byte</td></tr>
-    <tr><th>Ukuran file PNG</th><td>tanpa tanda tangan {{ hasil.png_polos }} byte → bertanda tangan {{ hasil.png_bertanda }} byte
-        (bertambah <b>{{ hasil.pertambahan }} byte</b>)</td></tr>
-    <tr><th>Waktu pembangkitan kunci</th><td>{{ '%.3f'|format(hasil.keygen_ms) }} ms</td></tr>
-    <tr><th>Waktu hash</th><td>{{ '%.3f'|format(hasil.hash_ms) }} ms</td></tr>
-    <tr><th>Waktu tanda tangan (ECDSA + PQC)</th><td><b>{{ '%.3f'|format(hasil.ttd_ms) }} ms</b></td></tr>
-    <tr><th>Waktu simpan PNG</th><td>{{ '%.3f'|format(hasil.simpan_ms) }} ms</td></tr>
-    <tr><th>Waktu penandatanganan total</th><td>{{ '%.3f'|format(hasil.total_ms) }} ms</td></tr>
-    <tr><th>Waktu verifikasi</th><td>{{ '%.3f'|format(hasil.verif_ms) }} ms</td></tr>
-  </table>
-  <p class="kecil">Angka pada halaman ini adalah satu kali pengukuran untuk peragaan. Data penelitian diambil menggunakan script pengujian (90 citra × 10 kali).</p>
+<div class="card mt-4">
+  <div class="card-header"><i class="bi bi-list-check me-1"></i>Process details</div>
+  <div class="card-body p-0">
+    <table class="table table-sm mb-0 align-middle">
+      <tbody>
+        <tr><th class="ps-3 w-25">Image</th><td>{{ hasil.nama }} · {{ hasil.lebar }} × {{ hasil.tinggi }} pixels · mode {{ hasil.mode }}</td></tr>
+        <tr><th class="ps-3">SHA-256 hash (width, height, pixels)</th><td class="mono">{{ hasil.hash }}</td></tr>
+        <tr><th class="ps-3">ECDSA / post-quantum signature</th><td>{{ hasil.sig_ecdsa }} bytes / {{ hasil.sig_pqc }} bytes</td></tr>
+        <tr><th class="ps-3">ECDSA / post-quantum public key</th><td>{{ hasil.kunci.ecdsa_publik }} bytes / {{ hasil.kunci.pqc_publik }} bytes</td></tr>
+        <tr><th class="ps-3">ECDSA / post-quantum private key</th><td>{{ hasil.kunci.ecdsa_privat }} bytes / {{ hasil.kunci.pqc_privat }} bytes</td></tr>
+        <tr><th class="ps-3">PNG file size</th><td>without signature {{ hasil.png_polos }} bytes → signed {{ hasil.png_bertanda }} bytes
+            (increase of <b>{{ hasil.pertambahan }} bytes</b>)</td></tr>
+        <tr><th class="ps-3">Key generation time</th><td>{{ '%.3f'|format(hasil.keygen_ms) }} ms</td></tr>
+        <tr><th class="ps-3">Hashing time</th><td>{{ '%.3f'|format(hasil.hash_ms) }} ms</td></tr>
+        <tr><th class="ps-3">Signing time (ECDSA + post-quantum)</th><td><b>{{ '%.3f'|format(hasil.ttd_ms) }} ms</b></td></tr>
+        <tr><th class="ps-3">PNG saving time</th><td>{{ '%.3f'|format(hasil.simpan_ms) }} ms</td></tr>
+        <tr><th class="ps-3">Total processing time</th><td>{{ '%.3f'|format(hasil.total_ms) }} ms</td></tr>
+        <tr><th class="ps-3">Verification time</th><td>{{ '%.3f'|format(hasil.verif_ms) }} ms</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card-footer bg-white small text-secondary">The values on this page come from a single run for demonstration. The research data is collected with the test script (90 images × 10 repetitions).</div>
 </div>
 {% endif %}
 {% endblock %}

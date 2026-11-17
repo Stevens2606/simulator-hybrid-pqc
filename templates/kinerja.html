@@ -1,31 +1,71 @@
 {% extends "base.html" %}
 {% block isi %}
-<h1>Perbandingan Kinerja Kombinasi pada Sesi Ini</h1>
-<p class="sub">Nilai berasal dari proses yang dijalankan pada sesi ini, sehingga dipengaruhi oleh ukuran citra yang digunakan dan jumlah percobaan. Perbandingan yang adil hanya dapat dilakukan jika ketiga kombinasi diuji dengan citra yang sama. Data penelitian diambil menggunakan script pengujian (90 citra × 10 kali).</p>
-{% if not baris %}
-  <div class="pesan">Belum ada data untuk dibandingkan. Tandatangani citra dengan satu atau lebih kombinasi terlebih dahulu.</div>
-{% else %}
-<div class="kartu">
-  <table>
-    <tr><th>Metrik</th>{% for b in baris %}<th class="angka">{{ KOMBINASI[b.kombinasi].label }}</th>{% endfor %}</tr>
-    <tr><td>Jumlah penandatanganan / verifikasi</td>{% for b in baris %}<td class="angka">{{ b.n_ttd }} / {{ b.n_ver }}</td>{% endfor %}</tr>
-    <tr><td>Waktu pembangkitan kunci (ms)</td>{% for b in baris %}<td class="angka">{{ '%.3f'|format(b.keygen) }}</td>{% endfor %}</tr>
-    <tr><td>Waktu tanda tangan ECDSA + PQC (ms)</td>{% for b in baris %}<td class="angka"><b>{{ '%.3f'|format(b.ttd) }}</b></td>{% endfor %}</tr>
-    <tr><td>Waktu penandatanganan total (ms)</td>{% for b in baris %}<td class="angka">{{ '%.3f'|format(b.total) }}</td>{% endfor %}</tr>
-    <tr><td>Waktu verifikasi (ms)</td>{% for b in baris %}<td class="angka"><b>{{ '%.3f'|format(b.verif) }}</b></td>{% endfor %}</tr>
-    <tr><td>Kunci publik PQC (byte)</td>{% for b in baris %}<td class="angka">{{ b.kunci.pqc_publik }}</td>{% endfor %}</tr>
-    <tr><td>Tanda tangan PQC (byte)</td>{% for b in baris %}<td class="angka">{{ b.sig_pqc }}</td>{% endfor %}</tr>
-    <tr><td>Pertambahan ukuran file (byte)</td>{% for b in baris %}<td class="angka">{{ '%.0f'|format(b.pertambahan) }}</td>{% endfor %}</tr>
-  </table>
+<div class="mb-4">
+  <h1 class="h3 judul-halaman mb-1"><i class="bi bi-bar-chart-line me-2"></i>Performance Comparison</h1>
+  <p class="text-secondary mb-0">Values come from the processes run in this session. The full research data is collected with the test script (90 images × 10 repetitions).</p>
 </div>
-<div class="grid">
-  <div class="kartu"><h2>Waktu tanda tangan (ms)</h2>
-    {% for b in baris %}<div class="kecil">{{ KOMBINASI[b.kombinasi].label }} · {{ '%.3f'|format(b.ttd) }} ms</div>
-      <div class="grafik" style="width:{{ 100 * b.ttd / maks_ttd }}%; background:{{ ['#5B7DB1','#E39B3A','#5BA36B'][loop.index0 % 3] }}; margin:4px 0 10px"></div>{% endfor %}
+{% if not baris %}
+  <div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>No data to compare yet. Please sign an image with one or more combinations first.</div>
+{% else %}
+<div class="card mb-4">
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <span><i class="bi bi-table me-1"></i>Result table</span>
+    <span class="small fw-normal">
+      {% for nama, warna in legenda %}<span class="me-3 text-nowrap"><span class="d-inline-block rounded-1 me-1" style="width:10px;height:10px;background:{{ warna }}"></span>{{ nama }}</span>{% endfor %}
+    </span>
   </div>
-  <div class="kartu"><h2>Waktu verifikasi (ms)</h2>
-    {% for b in baris %}<div class="kecil">{{ KOMBINASI[b.kombinasi].label }} · {{ '%.3f'|format(b.verif) }} ms</div>
-      <div class="grafik" style="width:{{ 100 * b.verif / maks_ver }}%; background:{{ ['#5B7DB1','#E39B3A','#5BA36B'][loop.index0 % 3] }}; margin:4px 0 10px"></div>{% endfor %}
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-hover table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th class="ps-3">Combination</th><th class="text-end">NIST level</th>
+            <th class="text-end">Key generation (ms)</th><th class="text-end">Signing (ms)</th><th class="text-end">Verification (ms)</th>
+            <th class="text-end">PQ public key (bytes)</th><th class="text-end">Signature size ECDSA + PQ (bytes)</th><th class="text-end pe-3">File increase (bytes)</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for b in baris %}
+          <tr>
+            <td class="ps-3"><span class="d-inline-block rounded-1 me-2" style="width:10px;height:10px;background:{{ b.warna }}"></span>{{ KOMBINASI[b.kombinasi].label }}</td>
+            <td class="text-end"><span class="badge text-bg-secondary">{{ b.level }}</span></td>
+            <td class="text-end">{{ '%.3f'|format(b.keygen) }}</td>
+            <td class="text-end fw-semibold">{{ '%.3f'|format(b.ttd) }}</td>
+            <td class="text-end fw-semibold">{{ '%.3f'|format(b.verif) }}</td>
+            <td class="text-end">{{ b.kunci.pqc_publik }}</td>
+            <td class="text-end">{{ b.sig_ecdsa }} + {{ b.sig_pqc }}</td>
+            <td class="text-end pe-3">{{ '%.0f'|format(b.pertambahan) }}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer bg-white small text-secondary">Signing = creating both signatures from the hash value. Verification = reading the package, recomputing the hash, and checking both signatures.</div>
+</div>
+
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-pen me-1"></i>Signing time (ms)</div>
+      <div class="card-body">
+        {% for b in baris %}
+          <div class="d-flex justify-content-between small"><span>{{ KOMBINASI[b.kombinasi].label }} · Level {{ b.level }}</span><span class="fw-semibold">{{ '%.3f'|format(b.ttd) }}</span></div>
+          <div class="batang mb-2" style="width:{{ 100 * b.ttd / maks_ttd }}%; background:{{ b.warna }}"></div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-patch-check me-1"></i>Verification time (ms)</div>
+      <div class="card-body">
+        {% for b in baris %}
+          <div class="d-flex justify-content-between small"><span>{{ KOMBINASI[b.kombinasi].label }} · Level {{ b.level }}</span><span class="fw-semibold">{{ '%.3f'|format(b.verif) }}</span></div>
+          <div class="batang mb-2" style="width:{{ 100 * b.verif / maks_ver }}%; background:{{ b.warna }}"></div>
+        {% endfor %}
+      </div>
+    </div>
   </div>
 </div>
 {% endif %}

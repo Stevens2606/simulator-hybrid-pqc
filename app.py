@@ -1,14 +1,19 @@
 """Simulator berbasis web: Hybrid Post-Quantum Digital Signature untuk integritas citra medis.
 
-Rancangan mengikuti Bab III (subbab 3.7):
-  /                -> diarahkan ke halaman Sign Citra
-  /sign            -> Sign Citra                 (UC-01)
+Rancangan mengikuti Bab III (subbab 3.6):
+  /                -> diarahkan ke /sign (tanpa dashboard)
+  /sign            -> Sign Image                 (UC-01)
   /unduh/<id>      -> unduh citra PNG bertanda tangan
-  /gambar/<id>     -> pratinjau citra (untuk ditampilkan di halaman)
-  /verifikasi      -> Status dan Verifikasi      (UC-02)
-  /eksternal       -> Verifikasi File Eksternal  (UC-03)
-  /kinerja         -> Perbandingan Kinerja       (UC-04)
+  /gambar/<id>     -> pratinjau citra bertanda tangan / citra uji
+  /asli/<id>       -> pratinjau citra asli sebelum ditandatangani (sisi pengirim)
+  /verifikasi      -> Status and Verification    (UC-02), alur pengirim -> penerima
+  /eksternal       -> External File Verification (UC-03)
+  /kinerja         -> Performance Comparison     (UC-04)
   /reset           -> menghapus data sesi
+
+Antarmuka menggunakan Bahasa Inggris (KNF-02). Modul core tidak diubah, sehingga
+status dan alasan dari core (Bahasa Indonesia) diterjemahkan di file ini sebelum
+ditampilkan. Script pengujian tetap memakai status "VALID" / "TIDAK VALID".
 
 Data sesi (kunci, citra bertanda tangan, hasil pengukuran) disimpan di memori server.
 Cookie pada browser hanya berisi kode pengenal sesi, sehingga kunci privat tidak pernah
@@ -35,9 +40,60 @@ from core.kombinasi import KOMBINASI
 app = Flask(__name__)
 app.secret_key = secrets.token_hex(16)
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024   # batas unggah 30 MB
+app.jinja_env.globals["zip"] = zip                    # dipakai template untuk menandai karakter hash yang berbeda
 
 _SESI = {}                     # {kode_sesi: data sesi}, hanya di memori server
 MAKS_CITRA_PER_SESI = 20       # agar memori server tidak penuh
+
+# Urutan dan warna keluarga algoritma (untuk pilihan kombinasi, tabel, dan grafik)
+URUTAN_ALGORITMA = ["ML-DSA", "Falcon", "SLH-DSA-SHA2-f", "SLH-DSA-SHA2-s", "SLH-DSA-SHAKE-f", "SLH-DSA-SHAKE-s"]
+WARNA_ALGORITMA = {"ML-DSA": "#5B7DB1", "Falcon": "#E39B3A", "SLH-DSA-SHA2-f": "#5BA36B",
+                   "SLH-DSA-SHA2-s": "#2E6B30", "SLH-DSA-SHAKE-f": "#B565A7", "SLH-DSA-SHAKE-s": "#7A3E73"}
+
+# ---------------------------------------------------------------- terjemahan tampilan (KNF-02)
+STATUS_EN = {"VALID": "VALID", "TIDAK VALID": "INVALID"}
+
+# Alasan mengikuti Tabel 3.13 (Aturan Penentuan Hasil Verifikasi).
+# Kondisi 1 (paket tidak ditemukan / tidak lengkap / kunci publik tidak tersedia) memakai alasan
+# "Signature cannot be checked", diikuti penyebabnya agar pengguna tahu masalahnya.
+ALASAN_EN = {
+    "Tanda tangan tidak ditemukan pada citra.":
+        "Signature cannot be checked: signature not found in the image.",
+    "Paket tanda tangan rusak atau tidak lengkap.":
+        "Signature cannot be checked: signature package is incomplete.",
+    "Kunci publik untuk kombinasi ini tidak tersedia pada sesi simulator.":
+        "Signature cannot be checked: public key is not available in this session.",
+    "Citra asli dan tidak berubah sejak ditandatangani.": "Image has not changed since it was signed.",
+    "Kedua tanda tangan tidak cocok: citra telah berubah sejak ditandatangani, atau tanda tangannya tidak sah.":
+        "Both signatures do not match.",
+    "Tanda tangan ECDSA tidak cocok.": "ECDSA signature does not match.",
+    "Tanda tangan pasca-kuantum tidak cocok.": "Post-quantum signature does not match.",
+}
+
+MANIPULASI_EN = {
+    "Perubahan satu piksel": "Single pixel change",
+    "Penambahan objek (bercak) pada area paru": "Added spot (object) in the lung area",
+    "Perubahan kecerahan dan kontras": "Brightness and contrast change",
+    "Pemotongan (cropping)": "Cropping",
+    "Kompresi ulang JPEG": "JPEG recompression",
+    "Penghapusan paket": "Package removal",
+    "Perubahan isi paket": "Package content change",
+    "Penukaran paket dari citra lain": "Package swap from another image",
+    "Pemalsuan sebagian (ECDSA dirusak)": "Partial forgery (ECDSA damaged)",
+    "Pemalsuan sebagian (pasca-kuantum dirusak)": "Partial forgery (post-quantum damaged)",
+    "Penandatanganan ulang dengan kunci penyerang": "Re-signing with the attacker's key",
+}
+
+
+def en_status(status):
+    return STATUS_EN.get(status, status)
+
+
+def en_alasan(alasan):
+    return ALASAN_EN.get(alasan, alasan)
+
+
+app.jinja_env.globals["en_manipulasi"] = lambda nama: MANIPULASI_EN.get(nama, nama)
 
 
 # ---------------------------------------------------------------- bantuan
@@ -52,7 +108,7 @@ def sesi():
 
 
 def kunci_untuk(s, kombinasi):
-    """Kunci dibangkitkan satu kali per kombinasi per sesi (Gambar 3.9 langkah 3)."""
+    """Kunci dibangkitkan satu kali per kombinasi per sesi."""
     if kombinasi not in s["kunci"]:
         kunci, ms = proses.ukur_keygen(kombinasi)
         s["kunci"][kombinasi] = kunci
@@ -97,11 +153,13 @@ def ukuran_kunci(kunci):
 
 
 def ringkas_verifikasi(hasil):
+    status = status_dari(hasil)
     return {
-        "status": status_dari(hasil),
+        "status": status,                       # status asli dari core (VALID / TIDAK VALID)
+        "status_en": en_status(status),         # status yang ditampilkan (VALID / INVALID)
         "ecdsa": cocok(hasil, "ecdsa"),
         "pqc": cocok(hasil, "pqc"),
-        "alasan": hasil.get("alasan", ""),
+        "alasan": en_alasan(hasil.get("alasan", "")),
         "kombinasi": hasil.get("kombinasi"),
         "waktu_ms": hasil.get("waktu_verifikasi_ms", 0.0),
     }
@@ -115,6 +173,14 @@ def png_pratinjau(data, sisi=520):
     return buf.getvalue()
 
 
+def kombinasi_per_algoritma():
+    """Mengelompokkan 17 kombinasi per keluarga algoritma, untuk pilihan di halaman Sign Image."""
+    kelompok = {a: [] for a in URUTAN_ALGORITMA}
+    for kode, data in KOMBINASI.items():
+        kelompok.setdefault(data["algoritma"], []).append((kode, data))
+    return [(a, daftar) for a, daftar in kelompok.items() if daftar]
+
+
 @app.context_processor
 def data_umum():
     return {"KOMBINASI": KOMBINASI, "halaman": request.endpoint}
@@ -122,15 +188,16 @@ def data_umum():
 
 @app.errorhandler(413)
 def terlalu_besar(_):
-    return render_template("pesan.html", pesan="Ukuran file melebihi batas 30 MB."), 413
+    return render_template("pesan.html", pesan="The file exceeds the 30 MB upload limit."), 413
 
 
-# ---------------------------------------------------------------- UC-01 Sign Citra
 @app.route("/")
 def beranda():
+    """Halaman awal langsung diarahkan ke Sign Image (simulator tanpa dashboard)."""
     return redirect(url_for("sign"))
 
 
+# ---------------------------------------------------------------- UC-01 Sign Image
 @app.route("/sign", methods=["GET", "POST"])
 def sign():
     s = sesi()
@@ -139,17 +206,18 @@ def sign():
         berkas = request.files.get("citra")
         kombinasi = request.form.get("kombinasi")
         if not berkas or not berkas.filename:
-            pesan = "Pilih file citra terlebih dahulu."
-        elif Path(berkas.filename).suffix.lower() not in (".jpg", ".jpeg", ".png"):
-            pesan = "Format citra tidak didukung. Gunakan file JPEG atau PNG."
+            pesan = "Please choose an image file first."
+        elif Path(berkas.filename).suffix.lower() not in (".jpg", ".jpeg"):
+            pesan = "Unsupported image format. Please upload a JPEG file."
         elif kombinasi not in KOMBINASI:
-            pesan = "Pilih salah satu kombinasi hybrid."
+            pesan = "Please choose one of the hybrid combinations."
         else:
+            data_asli = berkas.read()                 # file asli sebelum ditandatangani
             try:
-                img = citra.buka_citra(berkas.read())
+                img = citra.buka_citra(data_asli)
             except Exception:
                 img = None
-                pesan = "File tidak dapat dibaca sebagai citra."
+                pesan = "The file cannot be read as an image."
             if img is not None:
                 kunci = kunci_untuk(s, kombinasi)
                 png, info = proses.tandatangani_citra(img, kunci)
@@ -175,10 +243,11 @@ def sign():
                     "kunci": ukuran_kunci(kunci),
                     "waktu": time.strftime("%H:%M:%S"),
                 }
-                s["citra"].append({"id": hasil["id"], "png": png, "info": hasil})
+                s["citra"].append({"id": hasil["id"], "asli": data_asli, "png": png, "info": hasil})
                 s["citra"] = s["citra"][-MAKS_CITRA_PER_SESI:]
                 s["riwayat"].append(hasil)
-    return render_template("sign.html", pesan=pesan, hasil=hasil)
+    return render_template("sign.html", pesan=pesan, hasil=hasil, kelompok=kombinasi_per_algoritma(),
+                           dipilih=request.form.get("kombinasi"))
 
 
 def _cari_citra(s, id_citra):
@@ -192,7 +261,7 @@ def _cari_citra(s, id_citra):
 def unduh(id_citra):
     c = _cari_citra(sesi(), id_citra)
     return send_file(io.BytesIO(c["png"]), mimetype="image/png", as_attachment=True,
-                     download_name=f"{c['info']['nama']}_bertanda.png")
+                     download_name=f"{c['info']['nama']}_signed.png")
 
 
 @app.route("/gambar/<id_citra>")
@@ -210,7 +279,21 @@ def gambar(id_citra):
         abort(404)
 
 
-# ---------------------------------------------------------------- UC-02 Status dan Verifikasi
+@app.route("/asli/<id_citra>")
+def gambar_asli(id_citra):
+    """Pratinjau citra asli sebelum ditandatangani (sisi pengirim)."""
+    c = _cari_citra(sesi(), id_citra)
+    try:
+        return send_file(io.BytesIO(png_pratinjau(c["asli"])), mimetype="image/png")
+    except Exception:
+        abort(404)
+
+
+# ---------------------------------------------------------------- UC-02 Status and Verification
+# Halaman ini memperagakan alur pengiriman citra:
+#   sisi pengirim : citra asli -> hash asli -> ditandatangani (sigma1 ECDSA, sigma2 PQC)
+#   perjalanan    : citra dapat mengalami manipulasi (atau tidak)
+#   sisi penerima : hash dihitung ulang -> sigma1 dan sigma2 diperiksa dengan kunci publik -> aturan AND
 @app.route("/verifikasi", methods=["GET", "POST"])
 def verifikasi():
     s = sesi()
@@ -221,26 +304,32 @@ def verifikasi():
         img_ttd = citra.buka_citra(dipilih["png"])
         paket = citra.baca_paket(img_ttd)
         if jenis == "tanpa":
-            label, data_uji = "Tanpa manipulasi", dipilih["png"]
+            label, data_uji = "None", dipilih["png"]
         elif jenis in manipulasi.MANIPULASI_CITRA:
-            label, data_uji = jenis, manipulasi.MANIPULASI_CITRA[jenis](img_ttd, paket)
+            label, data_uji = MANIPULASI_EN.get(jenis, jenis), manipulasi.MANIPULASI_CITRA[jenis](img_ttd, paket)
         elif jenis in manipulasi.MANIPULASI_TANDA_TANGAN:
             lain = [c for c in s["citra"] if c["id"] != dipilih["id"]
                     and c["info"]["kombinasi"] == dipilih["info"]["kombinasi"]]
             paket_lain = citra.baca_paket(citra.buka_citra(lain[-1]["png"])) if lain else None
             if jenis.startswith("Penukaran") and paket_lain is None:
                 return render_template("verifikasi.html", hasil=None, dipilih=dipilih,
-                                       pesan="Penukaran paket membutuhkan minimal dua citra yang "
-                                             "ditandatangani dengan kombinasi yang sama.",
+                                       pesan="Package swap needs at least two images signed "
+                                             "with the same combination.",
                                        m_citra=manipulasi.MANIPULASI_CITRA,
                                        m_ttd=manipulasi.MANIPULASI_TANDA_TANGAN, daftar=s["citra"], jenis=jenis)
-            label = jenis
+            label = MANIPULASI_EN.get(jenis, jenis)
             data_uji = manipulasi.MANIPULASI_TANDA_TANGAN[jenis](img_ttd, paket, paket_citra_lain=paket_lain)
         else:
             abort(400)
-        hasil = ringkas_verifikasi(proses.verifikasi_citra(citra.buka_citra(data_uji), kunci_publik_sesi(s)))
+        img_uji = citra.buka_citra(data_uji)
+        hasil = ringkas_verifikasi(proses.verifikasi_citra(img_uji, kunci_publik_sesi(s)))
+        # sisi pengirim: hash citra asli (dihitung saat penandatanganan)
+        hasil["hash_ttd"] = dipilih["info"]["hash"]
+        # sisi penerima: hash dihitung ulang dari citra yang diterima
+        hasil["hash_uji"] = citra.hitung_hash(img_uji).hex()
+        hasil["ada_paket"] = citra.baca_paket(img_uji) is not None
         hasil["manipulasi"] = label
-        hasil["harapan"] = "VALID" if jenis == "tanpa" else "TIDAK VALID"
+        hasil["harapan"] = "VALID" if jenis == "tanpa" else "INVALID"
         s["uji"] = data_uji
         s["riwayat"].append({"kombinasi": dipilih["info"]["kombinasi"], "verif_ms": hasil["waktu_ms"],
                              "hanya_verifikasi": True})
@@ -249,7 +338,7 @@ def verifikasi():
                            daftar=s["citra"], waktu=time.time(), jenis=jenis)
 
 
-# ---------------------------------------------------------------- UC-03 Verifikasi File Eksternal
+# ---------------------------------------------------------------- UC-03 External File Verification
 @app.route("/eksternal", methods=["GET", "POST"])
 def eksternal():
     s = sesi()
@@ -257,13 +346,15 @@ def eksternal():
     if request.method == "POST":
         berkas = request.files.get("citra")
         if not berkas or not berkas.filename:
-            pesan = "Pilih file citra terlebih dahulu."
+            pesan = "Please choose an image file first."
+        elif Path(berkas.filename).suffix.lower() != ".png":
+            pesan = "Unsupported file format. Please upload a PNG file."      # UC-03 alur lain
         else:
             data = berkas.read()
             try:
                 img = citra.buka_citra(data)
             except Exception:
-                img, pesan = None, "File tidak dapat dibaca sebagai citra."
+                img, pesan = None, "The file cannot be read as an image."
             if img is not None:
                 paket = citra.baca_paket(img)
                 if paket:
@@ -274,40 +365,47 @@ def eksternal():
                         paket_info = None
                 hasil = ringkas_verifikasi(proses.verifikasi_citra(img, kunci_publik_sesi(s)))
                 hasil["nama"] = berkas.filename
+                hasil["hash_uji"] = citra.hitung_hash(img).hex()
                 s["uji"] = data
     return render_template("eksternal.html", hasil=hasil, pesan=pesan, paket=paket_info,
                            ada_kunci=bool(s["kunci"]), waktu=time.time())
 
 
-# ---------------------------------------------------------------- UC-04 Perbandingan Kinerja
+# ---------------------------------------------------------------- UC-04 Performance Comparison
 @app.route("/kinerja")
 def kinerja():
     s = sesi()
     baris = []
-    for k in KOMBINASI:
+    for k, data in KOMBINASI.items():
         ttd = [r for r in s["riwayat"] if r["kombinasi"] == k and not r.get("hanya_verifikasi")]
         ver = [r["verif_ms"] for r in s["riwayat"] if r["kombinasi"] == k]
         if not ttd:
             continue
         rata = lambda kunci: statistics.mean(r[kunci] for r in ttd)
         baris.append({
-            "kombinasi": k, "n_ttd": len(ttd), "n_ver": len(ver),
+            "kombinasi": k, "algoritma": data["algoritma"], "level": data["level_nist"],
+            "warna": WARNA_ALGORITMA.get(data["algoritma"], "#5B7DB1"),
+            "n_ttd": len(ttd), "n_ver": len(ver),
             "keygen": s["keygen_ms"].get(k, 0.0),
             "ttd": rata("ttd_ms"), "total": rata("total_ms"),
             "verif": statistics.mean(ver) if ver else 0.0,
-            "kunci": ttd[-1]["kunci"], "sig_pqc": ttd[-1]["sig_pqc"],
+            "kunci": ttd[-1]["kunci"], "sig_ecdsa": ttd[-1]["sig_ecdsa"], "sig_pqc": ttd[-1]["sig_pqc"],
             "pertambahan": rata("pertambahan"),
         })
+    # urutkan: keluarga algoritma, lalu level NIST
+    baris.sort(key=lambda b: (URUTAN_ALGORITMA.index(b["algoritma"]) if b["algoritma"] in URUTAN_ALGORITMA else 99,
+                              b["level"]))
     maks_ttd = max([b["ttd"] for b in baris] + [1e-9])
     maks_ver = max([b["verif"] for b in baris] + [1e-9])
-    return render_template("kinerja.html", baris=baris, maks_ttd=maks_ttd, maks_ver=maks_ver)
+    legenda = [(a, WARNA_ALGORITMA[a]) for a in URUTAN_ALGORITMA if any(b["algoritma"] == a for b in baris)]
+    return render_template("kinerja.html", baris=baris, maks_ttd=maks_ttd, maks_ver=maks_ver, legenda=legenda)
 
 
 @app.route("/reset")
 def reset():
     _SESI.pop(session.get("kode"), None)
     session.clear()
-    return redirect(url_for("sign"))
+    return redirect(url_for("beranda"))
 
 
 if __name__ == "__main__":

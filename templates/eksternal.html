@@ -1,35 +1,49 @@
 {% extends "base.html" %}
 {% block isi %}
-<h1>Verifikasi File Eksternal</h1>
-<p class="sub">Unggah citra PNG dari luar simulator, misalnya citra yang sebelumnya diunduh lalu diubah dengan aplikasi lain.</p>
-{% if pesan %}<div class="pesan">{{ pesan }}</div>{% endif %}
-{% if not ada_kunci %}<div class="pesan">Belum ada kunci pada sesi ini. Citra hanya dapat dinyatakan VALID jika ditandatangani pada sesi yang sama.</div>{% endif %}
-<div class="grid">
-  <div class="kartu">
-    <form method="post" enctype="multipart/form-data">
-      <label for="citra">Citra yang akan diperiksa (PNG)</label>
-      <input type="file" id="citra" name="citra" accept=".png,.jpg,.jpeg" required>
-      <button type="submit">Verifikasi</button>
-    </form>
-    {% if hasil %}
-      <h2 style="margin-top:18px">Isi paket</h2>
-      {% if paket %}
-        <table>
-          <tr><th>Kombinasi</th><td>{{ paket.kombinasi }}</td></tr>
-          <tr><th>Panjang σ<sub>1</sub> / σ<sub>2</sub></th><td>{{ paket.sig_ecdsa }} byte / {{ paket.sig_pqc }} byte</td></tr>
-        </table>
-      {% else %}<p class="kecil">Paket tanda tangan tidak terbaca.</p>{% endif %}
-      <img class="pratinjau" style="margin-top:12px" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Citra yang diperiksa">
-    {% endif %}
+<div class="mb-4">
+  <h1 class="h3 judul-halaman mb-1"><i class="bi bi-file-earmark-arrow-up me-2"></i>External File Verification</h1>
+  <p class="text-secondary mb-0">Upload a PNG image from outside the simulator, for example an image that was downloaded earlier and then edited with another application.</p>
+</div>
+{% if pesan %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ pesan }}</div>{% endif %}
+{% if not ada_kunci %}<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>There are no keys in this session yet. An image can only be VALID if it was signed in the same session.</div>{% endif %}
+
+<div class="row g-4">
+  <div class="col-lg-5">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-upload me-1"></i>Input</div>
+      <div class="card-body">
+        <form method="post" enctype="multipart/form-data">
+          <label for="citra" class="form-label fw-semibold">Image to verify (PNG)</label>
+          <input class="form-control" type="file" id="citra" name="citra" accept=".png" required>
+          <button type="submit" class="btn btn-primary w-100 mt-3"><i class="bi bi-shield-check me-1"></i>Verify File</button>
+        </form>
+        {% if hasil %}
+          <h2 class="h6 mt-4">Package content</h2>
+          {% if paket %}
+            <table class="table table-sm">
+              <tr><th>Combination</th><td>{{ KOMBINASI[paket.kombinasi].label if paket.kombinasi in KOMBINASI else paket.kombinasi }}</td></tr>
+              <tr><th>Length of σ<sub>1</sub> / σ<sub>2</sub></th><td>{{ paket.sig_ecdsa }} bytes / {{ paket.sig_pqc }} bytes</td></tr>
+            </table>
+          {% else %}<p class="small text-secondary">The signature package cannot be read.</p>{% endif %}
+          <img class="pratinjau mt-2" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Verified image">
+        {% endif %}
+      </div>
+    </div>
   </div>
-  <div class="kartu">
-    <h2>Hasil verifikasi</h2>
-    {% if hasil %}
-      <p class="kecil">File: <b>{{ hasil.nama }}</b></p>
-      {% include "_hasil.html" %}
-    {% else %}<p class="kecil">Belum ada verifikasi.</p>{% endif %}
-    <div class="pesan" style="margin-top:14px"><b>Kemungkinan hasil lain:</b> tanda tangan tidak ditemukan,
-      paket rusak atau tidak lengkap, atau kunci publik untuk kombinasi tersebut tidak tersedia pada sesi.</div>
+  <div class="col-lg-7">
+    <div class="card h-100">
+      <div class="card-header"><i class="bi bi-clipboard-check me-1"></i>Verification result</div>
+      <div class="card-body">
+        {% if hasil %}
+          <p class="small text-secondary mb-2">File: <b>{{ hasil.nama }}</b></p>
+          {% include "_hasil.html" %}
+        {% else %}
+          <div class="text-center text-secondary py-5"><i class="bi bi-clipboard fs-1 d-block mb-2"></i>No verification yet.</div>
+        {% endif %}
+        <div class="alert alert-light border small mt-3 mb-0"><b>Other possible results:</b> signature not found,
+          incomplete package, or the public key for that combination is not available in this session.</div>
+      </div>
+    </div>
   </div>
 </div>
 {% endblock %}
