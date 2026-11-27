@@ -1,47 +1,73 @@
 {% extends "base.html" %}
 {% block isi %}
-<div class="mb-4">
-  <h1 class="h3 judul-halaman mb-1"><i class="bi bi-file-earmark-arrow-up me-2"></i>External File Verification</h1>
-  <p class="text-secondary mb-0">Upload a PNG image from outside the simulator, for example an image that was downloaded earlier and then edited with another application.</p>
+<div class="page-header">
+  <h1 class="judul-halaman">External File Verification</h1>
+  <p class="page-subtitle">Upload a JPEG image from outside the simulator, for example an image that was downloaded earlier and then edited with another application.</p>
 </div>
-{% if pesan %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ pesan }}</div>{% endif %}
-{% if not ada_kunci %}<div class="alert alert-info"><i class="bi bi-info-circle me-1"></i>There are no keys in this session yet. An image can only be VALID if it was signed in the same session.</div>{% endif %}
+
+{% if pesan %}
+  <div class="notice-box notice-warn"><i class="bi bi-exclamation-triangle-fill mt-1"></i><div>{{ pesan }}</div></div>
+{% endif %}
+{% if not ada_kunci %}
+  <div class="notice-box notice-info"><i class="bi bi-info-circle-fill mt-1"></i><div>There are no keys in this session yet. An image can only be VALID if it was signed in the same session.</div></div>
+{% endif %}
 
 <div class="row g-4">
   <div class="col-lg-5">
     <div class="card h-100">
-      <div class="card-header"><i class="bi bi-upload me-1"></i>Input</div>
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-upload text-muted-custom"></i>
+        <span>Upload Image</span>
+      </div>
       <div class="card-body">
         <form method="post" enctype="multipart/form-data">
-          <label for="citra" class="form-label fw-semibold">Image to verify (PNG)</label>
-          <input class="form-control" type="file" id="citra" name="citra" accept=".png" required>
-          <button type="submit" class="btn btn-primary w-100 mt-3"><i class="bi bi-shield-check me-1"></i>Verify File</button>
+          <div class="mb-3">
+            <label for="citra" class="form-label">Image to verify (JPEG)</label>
+            <input class="form-control" type="file" id="citra" name="citra" accept=".jpg,.jpeg" required>
+          </div>
+          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-shield-check me-1"></i> Verify File</button>
         </form>
+
         {% if hasil %}
-          <h2 class="h6 mt-4">Package content</h2>
+          <hr class="my-4" style="border-color: var(--border-hairline);">
+          <h2 class="h6 fw-semibold mb-2">Package content</h2>
           {% if paket %}
-            <table class="table table-sm">
-              <tr><th>Combination</th><td>{{ KOMBINASI[paket.kombinasi].label if paket.kombinasi in KOMBINASI else paket.kombinasi }}</td></tr>
-              <tr><th>Length of σ<sub>1</sub> / σ<sub>2</sub></th><td>{{ paket.sig_ecdsa }} bytes / {{ paket.sig_pqc }} bytes</td></tr>
+            <table class="table table-clean mb-3">
+              <tr><th style="width:42%">Combination</th><td>{{ KOMBINASI[paket.kombinasi].label if paket.kombinasi in KOMBINASI else paket.kombinasi }}</td></tr>
+              <tr><th>Length of σ<sub>1</sub> / σ<sub>2</sub></th><td class="num-tabular">{{ paket.sig_ecdsa }} bytes / {{ paket.sig_pqc }} bytes</td></tr>
             </table>
-          {% else %}<p class="small text-secondary">The signature package cannot be read.</p>{% endif %}
-          <img class="pratinjau mt-2" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Verified image">
+          {% else %}
+            <p class="small text-muted-custom mb-3">The signature package cannot be read.</p>
+          {% endif %}
+          <div class="preview-frame">
+            <img class="pratinjau" src="{{ url_for('gambar', id_citra='uji') }}?t={{ waktu }}" alt="Verified image">
+          </div>
         {% endif %}
       </div>
     </div>
   </div>
+
   <div class="col-lg-7">
     <div class="card h-100">
-      <div class="card-header"><i class="bi bi-clipboard-check me-1"></i>Verification result</div>
-      <div class="card-body">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-clipboard-check text-muted-custom"></i>
+        <span>Verification Result</span>
+      </div>
+      <div class="card-body d-flex flex-column">
         {% if hasil %}
-          <p class="small text-secondary mb-2">File: <b>{{ hasil.nama }}</b></p>
+          <div class="small text-muted-custom mb-3">File: <b class="text-emphasis">{{ hasil.nama }}</b></div>
           {% include "_hasil.html" %}
         {% else %}
-          <div class="text-center text-secondary py-5"><i class="bi bi-clipboard fs-1 d-block mb-2"></i>No verification yet.</div>
+          <div class="empty-viewport my-auto">
+            <i class="bi bi-clipboard fs-1 d-block mb-2 opacity-50"></i>
+            <div class="fw-medium text-emphasis">No verification yet</div>
+            <div class="small mt-1">Upload a JPEG image on the left to inspect its embedded signatures.</div>
+          </div>
         {% endif %}
-        <div class="alert alert-light border small mt-3 mb-0"><b>Other possible results:</b> signature not found,
-          incomplete package, or the public key for that combination is not available in this session.</div>
+        <div class="notice-box notice-muted small mt-3 mb-0">
+          <i class="bi bi-info-circle mt-1"></i>
+          <div><b>Other possible results:</b> signature not found, incomplete package, or the public key for that combination is not available in this session.</div>
+        </div>
       </div>
     </div>
   </div>

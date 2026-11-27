@@ -1,18 +1,59 @@
 {% set ok = hasil.status == 'VALID' %}
-<div class="alert {{ 'alert-success' if ok else 'alert-danger' }} d-flex align-items-center gap-2">
-  <i class="bi {{ 'bi-shield-fill-check' if ok else 'bi-shield-fill-x' }} fs-2"></i>
-  <span class="status-besar">{{ hasil.status_en }}</span>
+<div class="verify-box" role="region" aria-label="Verification Result">
+  <div class="verify-box-head {{ 'is-valid' if ok else 'is-invalid' }}">
+    <div class="d-flex align-items-center gap-3">
+      <div class="verify-shield" aria-hidden="true">
+        <i class="bi {{ 'bi-shield-fill-check' if ok else 'bi-shield-fill-x' }}"></i>
+      </div>
+      <div>
+        <div class="small fw-medium opacity-75">Cryptographic Verification</div>
+        <div class="status-besar">{{ hasil.status_en }}</div>
+      </div>
+    </div>
+    <div class="text-end">
+      <div class="small opacity-75" style="font-size:0.72rem;">Verification time</div>
+      <div class="num-tabular fw-semibold">{{ '%.3f'|format(hasil.waktu_ms) }} ms</div>
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-clean align-middle">
+      <tr>
+        <th style="width:36%" class="ps-3">ECDSA signature (σ<sub>1</sub>)</th>
+        <td class="pe-3">
+          {% if hasil.ecdsa is none %}
+            <span class="state-mark is-idle"><i class="bi bi-dash-circle"></i> not checked</span>
+          {% elif hasil.ecdsa %}
+            <span class="state-mark is-ok"><i class="bi bi-check-circle-fill"></i> matched</span>
+          {% else %}
+            <span class="state-mark is-fail"><i class="bi bi-x-circle-fill"></i> not matched</span>
+          {% endif %}
+        </td>
+      </tr>
+      <tr>
+        <th class="ps-3">Post-quantum signature (σ<sub>2</sub>)</th>
+        <td class="pe-3">
+          {% if hasil.pqc is none %}
+            <span class="state-mark is-idle"><i class="bi bi-dash-circle"></i> not checked</span>
+          {% elif hasil.pqc %}
+            <span class="state-mark is-ok"><i class="bi bi-check-circle-fill"></i> matched</span>
+          {% else %}
+            <span class="state-mark is-fail"><i class="bi bi-x-circle-fill"></i> not matched</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% if hasil.hash_uji %}
+      <tr>
+        <th class="ps-3">Hash of the verified image</th>
+        <td class="pe-3">
+          <div class="hash-box mono">{{ hasil.hash_uji }}</div>
+        </td>
+      </tr>
+      {% endif %}
+      <tr>
+        <th class="ps-3">Reason</th>
+        <td class="pe-3">{{ hasil.alasan }}</td>
+      </tr>
+    </table>
+  </div>
 </div>
-<table class="table table-sm mb-0">
-  <tr><th style="width:35%">ECDSA signature (σ<sub>1</sub>)</th><td>
-    {% if hasil.ecdsa is none %}<span class="badge text-bg-light border">not checked</span>
-    {% elif hasil.ecdsa %}<span class="badge text-bg-success"><i class="bi bi-check-lg"></i> matched</span>{% else %}<span class="badge text-bg-danger"><i class="bi bi-x-lg"></i> not matched</span>{% endif %}</td></tr>
-  <tr><th>Post-quantum signature (σ<sub>2</sub>)</th><td>
-    {% if hasil.pqc is none %}<span class="badge text-bg-light border">not checked</span>
-    {% elif hasil.pqc %}<span class="badge text-bg-success"><i class="bi bi-check-lg"></i> matched</span>{% else %}<span class="badge text-bg-danger"><i class="bi bi-x-lg"></i> not matched</span>{% endif %}</td></tr>
-  {% if hasil.hash_uji %}
-  <tr><th>Hash of the verified image</th><td class="mono">{{ hasil.hash_uji }}</td></tr>
-  {% endif %}
-  <tr><th>Reason</th><td>{{ hasil.alasan }}</td></tr>
-  <tr><th>Verification time</th><td>{{ '%.3f'|format(hasil.waktu_ms) }} ms</td></tr>
-</table>

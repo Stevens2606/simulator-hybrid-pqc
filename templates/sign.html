@@ -1,23 +1,29 @@
 {% extends "base.html" %}
 {% block isi %}
-<div class="mb-4">
-  <h1 class="h3 judul-halaman mb-1"><i class="bi bi-pen me-2"></i>Sign Image</h1>
-  <p class="text-secondary mb-0">Upload an X-ray image and choose a hybrid combination. Both signatures are stored in the PNG metadata without changing the pixel values.</p>
+<div class="page-header">
+  <h1 class="judul-halaman">Sign Image</h1>
+  <p class="page-subtitle">Upload an X-ray image and choose a hybrid combination. The image stays a JPEG file: both signatures are inserted into the JPEG metadata without re-compressing the image, so the pixel values do not change.</p>
 </div>
-{% if pesan %}<div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>{{ pesan }}</div>{% endif %}
+
+{% if pesan %}
+  <div class="notice-box notice-warn"><i class="bi bi-exclamation-triangle-fill mt-1"></i><div>{{ pesan }}</div></div>
+{% endif %}
 
 <div class="row g-4">
   <div class="col-lg-5">
     <div class="card h-100">
-      <div class="card-header"><i class="bi bi-upload me-1"></i>Input</div>
-      <div class="card-body">
+      <div class="card-header d-flex align-items-center gap-2">
+        <i class="bi bi-upload text-muted-custom"></i>
+        <span>Signing Configuration</span>
+      </div>
+      <div class="card-body d-flex flex-column">
         <form method="post" enctype="multipart/form-data">
           <div class="mb-3">
-            <label for="citra" class="form-label fw-semibold">X-ray image (JPEG)</label>
+            <label for="citra" class="form-label">X-ray image (JPEG)</label>
             <input class="form-control" type="file" id="citra" name="citra" accept=".jpg,.jpeg" required>
           </div>
-          <div class="mb-3">
-            <label for="kombinasi" class="form-label fw-semibold">Hybrid combination ({{ KOMBINASI|length }} options)</label>
+          <div class="mb-4">
+            <label for="kombinasi" class="form-label">Hybrid combination ({{ KOMBINASI|length }} options)</label>
             <select class="form-select" id="kombinasi" name="kombinasi">
               {% for algoritma, daftar in kelompok %}
               <optgroup label="{{ algoritma }}">
@@ -26,27 +32,50 @@
               {% endfor %}
             </select>
           </div>
-          <button type="submit" class="btn btn-primary w-100"><i class="bi bi-pen me-1"></i>Sign Image</button>
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-pen me-1"></i> Sign Image
+          </button>
         </form>
-        <p class="small text-secondary mt-3 mb-0"><i class="bi bi-key me-1"></i>Keys are generated once for each combination in this session.
-          The private key stays on the server, while the public key is kept in the session for verification.</p>
+
+        <div class="notice-box notice-muted mt-auto mb-0 mt-4">
+          <i class="bi bi-key mt-1"></i>
+          <div>Keys are generated once for each combination in this session. The private key stays on the server, while the public key is kept in the session for verification.</div>
+        </div>
       </div>
     </div>
   </div>
 
   <div class="col-lg-7">
     <div class="card h-100">
-      <div class="card-header"><i class="bi bi-image me-1"></i>Signing result</div>
+      <div class="card-header d-flex align-items-center justify-content-between">
+        <span class="d-flex align-items-center gap-2"><i class="bi bi-image text-muted-custom"></i> Signing Result</span>
+        {% if hasil %}
+          <span class="state-mark is-ok"><i class="bi bi-check-circle-fill"></i> Successfully signed</span>
+        {% endif %}
+      </div>
       <div class="card-body">
         {% if hasil %}
-          <div class="alert alert-success d-flex align-items-center gap-2 py-2">
+          <div class="notice-box notice-success mb-3">
             <i class="bi bi-check-circle-fill fs-5"></i>
-            <div><b>Successfully signed</b><br><span class="small">{{ KOMBINASI[hasil.kombinasi].label }} · NIST Level {{ KOMBINASI[hasil.kombinasi].level_nist }}</span></div>
+            <div>
+              <div class="fw-semibold">Successfully signed</div>
+              <div class="small">{{ KOMBINASI[hasil.kombinasi].label }} · NIST Level {{ KOMBINASI[hasil.kombinasi].level_nist }}</div>
+            </div>
           </div>
-          <img class="pratinjau" src="{{ url_for('gambar', id_citra=hasil.id) }}" alt="Signed image">
-          <a class="btn btn-outline-primary mt-3" href="{{ url_for('unduh', id_citra=hasil.id) }}"><i class="bi bi-download me-1"></i>Download Signed PNG</a>
+          <div class="preview-frame">
+            <img class="pratinjau" src="{{ url_for('gambar', id_citra=hasil.id) }}" alt="Signed image">
+          </div>
+          <div class="mt-3">
+            <a class="btn btn-outline-primary" href="{{ url_for('unduh', id_citra=hasil.id) }}">
+              <i class="bi bi-download me-1"></i> Download Signed JPEG
+            </a>
+          </div>
         {% else %}
-          <div class="text-center text-secondary py-5"><i class="bi bi-image fs-1 d-block mb-2"></i>No image has been signed yet.</div>
+          <div class="empty-viewport">
+            <i class="bi bi-image fs-1 d-block mb-2 opacity-50"></i>
+            <div class="fw-medium text-emphasis">No image has been signed yet</div>
+            <div class="small mt-1">Select a JPEG X-ray file and hybrid algorithm on the left to generate signatures.</div>
+          </div>
         {% endif %}
       </div>
     </div>
@@ -55,27 +84,31 @@
 
 {% if hasil %}
 <div class="card mt-4">
-  <div class="card-header"><i class="bi bi-list-check me-1"></i>Process details</div>
-  <div class="card-body p-0">
-    <table class="table table-sm mb-0 align-middle">
-      <tbody>
-        <tr><th class="ps-3 w-25">Image</th><td>{{ hasil.nama }} · {{ hasil.lebar }} × {{ hasil.tinggi }} pixels · mode {{ hasil.mode }}</td></tr>
-        <tr><th class="ps-3">SHA-256 hash (width, height, pixels)</th><td class="mono">{{ hasil.hash }}</td></tr>
-        <tr><th class="ps-3">ECDSA / post-quantum signature</th><td>{{ hasil.sig_ecdsa }} bytes / {{ hasil.sig_pqc }} bytes</td></tr>
-        <tr><th class="ps-3">ECDSA / post-quantum public key</th><td>{{ hasil.kunci.ecdsa_publik }} bytes / {{ hasil.kunci.pqc_publik }} bytes</td></tr>
-        <tr><th class="ps-3">ECDSA / post-quantum private key</th><td>{{ hasil.kunci.ecdsa_privat }} bytes / {{ hasil.kunci.pqc_privat }} bytes</td></tr>
-        <tr><th class="ps-3">PNG file size</th><td>without signature {{ hasil.png_polos }} bytes → signed {{ hasil.png_bertanda }} bytes
-            (increase of <b>{{ hasil.pertambahan }} bytes</b>)</td></tr>
-        <tr><th class="ps-3">Key generation time</th><td>{{ '%.3f'|format(hasil.keygen_ms) }} ms</td></tr>
-        <tr><th class="ps-3">Hashing time</th><td>{{ '%.3f'|format(hasil.hash_ms) }} ms</td></tr>
-        <tr><th class="ps-3">Signing time (ECDSA + post-quantum)</th><td><b>{{ '%.3f'|format(hasil.ttd_ms) }} ms</b></td></tr>
-        <tr><th class="ps-3">PNG saving time</th><td>{{ '%.3f'|format(hasil.simpan_ms) }} ms</td></tr>
-        <tr><th class="ps-3">Total processing time</th><td>{{ '%.3f'|format(hasil.total_ms) }} ms</td></tr>
-        <tr><th class="ps-3">Verification time</th><td>{{ '%.3f'|format(hasil.verif_ms) }} ms</td></tr>
-      </tbody>
-    </table>
+  <div class="card-header d-flex align-items-center gap-2">
+    <i class="bi bi-list-check text-muted-custom"></i>
+    <span>Process Details</span>
   </div>
-  <div class="card-footer bg-white small text-secondary">The values on this page come from a single run for demonstration. The research data is collected with the test script (90 images × 10 repetitions).</div>
+  <div class="card-body p-0">
+    <div class="table-responsive">
+      <table class="table table-clean align-middle">
+        <tbody>
+          <tr><th class="ps-4" style="width:28%">Image</th><td class="pe-4">{{ hasil.nama }} · <span class="num-tabular">{{ hasil.lebar }} × {{ hasil.tinggi }}</span> pixels · mode {{ hasil.mode }}</td></tr>
+          <tr><th class="ps-4">SHA-256 hash (width, height, pixels)</th><td class="pe-4"><div class="hash-box mono">{{ hasil.hash }}</div></td></tr>
+          <tr><th class="ps-4">ECDSA / post-quantum signature</th><td class="pe-4 num-tabular">{{ hasil.sig_ecdsa }} bytes / {{ hasil.sig_pqc }} bytes</td></tr>
+          <tr><th class="ps-4">ECDSA / post-quantum public key</th><td class="pe-4 num-tabular">{{ hasil.kunci.ecdsa_publik }} bytes / {{ hasil.kunci.pqc_publik }} bytes</td></tr>
+          <tr><th class="ps-4">ECDSA / post-quantum private key</th><td class="pe-4 num-tabular">{{ hasil.kunci.ecdsa_privat }} bytes / {{ hasil.kunci.pqc_privat }} bytes</td></tr>
+          <tr><th class="ps-4">JPEG file size</th><td class="pe-4">original <span class="num-tabular">{{ hasil.file_asli }}</span> bytes → signed <span class="num-tabular">{{ hasil.file_bertanda }}</span> bytes (increase of <b class="num-tabular">{{ hasil.pertambahan }} bytes</b>)</td></tr>
+          <tr><th class="ps-4">Key generation time</th><td class="pe-4 num-tabular">{{ '%.3f'|format(hasil.keygen_ms) }} ms</td></tr>
+          <tr><th class="ps-4">Hashing time</th><td class="pe-4 num-tabular">{{ '%.3f'|format(hasil.hash_ms) }} ms</td></tr>
+          <tr><th class="ps-4">Signing time (ECDSA + post-quantum)</th><td class="pe-4 num-tabular fw-bold">{{ '%.3f'|format(hasil.ttd_ms) }} ms</td></tr>
+          <tr><th class="ps-4">Package insertion time</th><td class="pe-4 num-tabular">{{ '%.3f'|format(hasil.simpan_ms) }} ms</td></tr>
+          <tr><th class="ps-4">Total processing time</th><td class="pe-4 num-tabular">{{ '%.3f'|format(hasil.total_ms) }} ms</td></tr>
+          <tr><th class="ps-4">Verification time</th><td class="pe-4 num-tabular">{{ '%.3f'|format(hasil.verif_ms) }} ms</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <div class="card-footer small">The values on this page come from a single run for demonstration. The research data is collected with the test script (90 images × 10 repetitions).</div>
 </div>
 {% endif %}
 {% endblock %}
