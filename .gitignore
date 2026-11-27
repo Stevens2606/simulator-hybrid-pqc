@@ -9,3 +9,9 @@ contoh_citra/
 dataset/
 keluaran/
 sampel/
+
+hasil/
+hasil_uji_coba/
+hasil_jumlah_sampel/
+hasil_*.csv
+*.xlsx

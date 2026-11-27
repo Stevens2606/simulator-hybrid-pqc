@@ -109,4 +109,4 @@ ditutup (end task).
 ## Dataset
 
 Chest X-Ray Images (Pneumonia), Kaggle — 90 citra sampel
-(30 Kecil, 30 Sedang, 30 Besar, seed 42).
+(30 Kecil, 30 Sedang, 30 Besar, seed 42). 

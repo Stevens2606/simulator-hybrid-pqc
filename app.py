@@ -3,7 +3,7 @@
 Rancangan mengikuti Bab III (subbab 3.6):
   /                -> diarahkan ke /sign (tanpa dashboard)
   /sign            -> Sign Image                 (UC-01)
-  /unduh/<id>      -> unduh citra PNG bertanda tangan
+  /unduh/<id>      -> unduh citra JPEG bertanda tangan
   /gambar/<id>     -> pratinjau citra bertanda tangan / citra uji
   /asli/<id>       -> pratinjau citra asli sebelum ditandatangani (sisi pengirim)
   /verifikasi      -> Status and Verification    (UC-02), alur pengirim -> penerima
@@ -11,9 +11,12 @@ Rancangan mengikuti Bab III (subbab 3.6):
   /kinerja         -> Performance Comparison     (UC-04)
   /reset           -> menghapus data sesi
 
-Antarmuka menggunakan Bahasa Inggris (KNF-02). Modul core tidak diubah, sehingga
-status dan alasan dari core (Bahasa Indonesia) diterjemahkan di file ini sebelum
-ditampilkan. Script pengujian tetap memakai status "VALID" / "TIDAK VALID".
+Citra tetap berformat JPEG: paket tanda tangan disisipkan ke metadata JPEG (segmen APP15)
+tanpa mengompres ulang gambar, sehingga nilai piksel tidak berubah (lihat core/citra.py).
+
+Antarmuka menggunakan Bahasa Inggris (KNF-02). Status dan alasan dari core (Bahasa
+Indonesia) diterjemahkan di file ini sebelum ditampilkan. Script pengujian tetap memakai
+status "VALID" / "TIDAK VALID".
 
 Data sesi (kunci, citra bertanda tangan, hasil pengukuran) disimpan di memori server.
 Cookie pada browser hanya berisi kode pengenal sesi, sehingga kunci privat tidak pernah
@@ -54,6 +57,7 @@ WARNA_ALGORITMA = {"ML-DSA": "#5B7DB1", "Falcon": "#E39B3A", "SLH-DSA-SHA2-f": "
 STATUS_EN = {"VALID": "VALID", "TIDAK VALID": "INVALID"}
 
 # Alasan mengikuti Tabel 3.13 (Aturan Penentuan Hasil Verifikasi).
+# Kunci di kiri HARUS sama persis dengan teks alasan di core/proses.py.
 # Kondisi 1 (paket tidak ditemukan / tidak lengkap / kunci publik tidak tersedia) memakai alasan
 # "Signature cannot be checked", diikuti penyebabnya agar pengguna tahu masalahnya.
 ALASAN_EN = {
@@ -61,10 +65,10 @@ ALASAN_EN = {
         "Signature cannot be checked: signature not found in the image.",
     "Paket tanda tangan rusak atau tidak lengkap.":
         "Signature cannot be checked: signature package is incomplete.",
-    "Kunci publik untuk kombinasi ini tidak tersedia pada sesi simulator.":
+    "Kunci publik untuk kombinasi ini tidak tersedia.":
         "Signature cannot be checked: public key is not available in this session.",
     "Citra asli dan tidak berubah sejak ditandatangani.": "Image has not changed since it was signed.",
-    "Kedua tanda tangan tidak cocok: citra telah berubah sejak ditandatangani, atau tanda tangannya tidak sah.":
+    "Kedua tanda tangan tidak cocok: citra telah berubah atau tanda tangan tidak sah.":
         "Both signatures do not match.",
     "Tanda tangan ECDSA tidak cocok.": "ECDSA signature does not match.",
     "Tanda tangan pasca-kuantum tidak cocok.": "Post-quantum signature does not match.",
@@ -165,11 +169,16 @@ def ringkas_verifikasi(hasil):
     }
 
 
-def png_pratinjau(data, sisi=520):
-    img = Image.open(io.BytesIO(data))
+def gambar_pratinjau(data, sisi=520):
+    """Gambar kecil untuk ditampilkan di browser saja (bukan file hasil).
+
+    data bisa berupa byte file JPEG atau objek citra (hasil manipulasi piksel di memori).
+    Pratinjau hanya diperkecil untuk tampilan; file hasil penandatanganan tidak ikut diubah.
+    """
+    img = data.copy() if isinstance(data, Image.Image) else Image.open(io.BytesIO(data))
     img.thumbnail((sisi, sisi))
     buf = io.BytesIO()
-    img.convert("L" if img.mode not in ("L", "RGB") else img.mode).save(buf, format="PNG")
+    img.convert("L" if img.mode not in ("L", "RGB") else img.mode).save(buf, format="JPEG", quality=90)
     return buf.getvalue()
 
 
@@ -220,8 +229,8 @@ def sign():
                 pesan = "The file cannot be read as an image."
             if img is not None:
                 kunci = kunci_untuk(s, kombinasi)
-                png, info = proses.tandatangani_citra(img, kunci)
-                cek = proses.verifikasi_citra(citra.buka_citra(png), kunci_publik_sesi(s))
+                jpeg_ttd, info = proses.tandatangani_citra(img, kunci)
+                cek = proses.verifikasi_citra(citra.buka_citra(jpeg_ttd), kunci_publik_sesi(s))
                 hasil = {
                     "id": secrets.token_hex(4),
                     "nama": Path(berkas.filename).stem,
@@ -237,13 +246,13 @@ def sign():
                     "sig_ecdsa": info.get("ukuran_sig_ecdsa"),
                     "sig_pqc": info.get("ukuran_sig_pqc"),
                     "paket": info.get("ukuran_paket"),
-                    "png_polos": info.get("ukuran_png_polos"),
-                    "png_bertanda": info.get("ukuran_png_bertanda"),
+                    "file_asli": info.get("ukuran_file_asli"),
+                    "file_bertanda": info.get("ukuran_file_bertanda"),
                     "pertambahan": info.get("pertambahan_file"),
                     "kunci": ukuran_kunci(kunci),
                     "waktu": time.strftime("%H:%M:%S"),
                 }
-                s["citra"].append({"id": hasil["id"], "asli": data_asli, "png": png, "info": hasil})
+                s["citra"].append({"id": hasil["id"], "asli": data_asli, "file": jpeg_ttd, "info": hasil})
                 s["citra"] = s["citra"][-MAKS_CITRA_PER_SESI:]
                 s["riwayat"].append(hasil)
     return render_template("sign.html", pesan=pesan, hasil=hasil, kelompok=kombinasi_per_algoritma(),
@@ -260,8 +269,8 @@ def _cari_citra(s, id_citra):
 @app.route("/unduh/<id_citra>")
 def unduh(id_citra):
     c = _cari_citra(sesi(), id_citra)
-    return send_file(io.BytesIO(c["png"]), mimetype="image/png", as_attachment=True,
-                     download_name=f"{c['info']['nama']}_signed.png")
+    return send_file(io.BytesIO(c["file"]), mimetype="image/jpeg", as_attachment=True,
+                     download_name=f"{c['info']['nama']}_signed.jpg")
 
 
 @app.route("/gambar/<id_citra>")
@@ -272,9 +281,9 @@ def gambar(id_citra):
             abort(404)
         data = s["uji"]
     else:
-        data = _cari_citra(s, id_citra)["png"]
+        data = _cari_citra(s, id_citra)["file"]
     try:
-        return send_file(io.BytesIO(png_pratinjau(data)), mimetype="image/png")
+        return send_file(io.BytesIO(gambar_pratinjau(data)), mimetype="image/jpeg")
     except Exception:
         abort(404)
 
@@ -284,7 +293,7 @@ def gambar_asli(id_citra):
     """Pratinjau citra asli sebelum ditandatangani (sisi pengirim)."""
     c = _cari_citra(sesi(), id_citra)
     try:
-        return send_file(io.BytesIO(png_pratinjau(c["asli"])), mimetype="image/png")
+        return send_file(io.BytesIO(gambar_pratinjau(c["asli"])), mimetype="image/jpeg")
     except Exception:
         abort(404)
 
@@ -301,16 +310,16 @@ def verifikasi():
     if request.method == "POST" and s["citra"]:
         dipilih = _cari_citra(s, request.form.get("citra"))
         jenis = request.form.get("manipulasi", "tanpa")
-        img_ttd = citra.buka_citra(dipilih["png"])
+        img_ttd = citra.buka_citra(dipilih["file"])
         paket = citra.baca_paket(img_ttd)
         if jenis == "tanpa":
-            label, data_uji = "None", dipilih["png"]
+            label, data_uji = "None", dipilih["file"]
         elif jenis in manipulasi.MANIPULASI_CITRA:
             label, data_uji = MANIPULASI_EN.get(jenis, jenis), manipulasi.MANIPULASI_CITRA[jenis](img_ttd, paket)
         elif jenis in manipulasi.MANIPULASI_TANDA_TANGAN:
             lain = [c for c in s["citra"] if c["id"] != dipilih["id"]
                     and c["info"]["kombinasi"] == dipilih["info"]["kombinasi"]]
-            paket_lain = citra.baca_paket(citra.buka_citra(lain[-1]["png"])) if lain else None
+            paket_lain = citra.baca_paket(citra.buka_citra(lain[-1]["file"])) if lain else None
             if jenis.startswith("Penukaran") and paket_lain is None:
                 return render_template("verifikasi.html", hasil=None, dipilih=dipilih,
                                        pesan="Package swap needs at least two images signed "
@@ -330,7 +339,7 @@ def verifikasi():
         hasil["ada_paket"] = citra.baca_paket(img_uji) is not None
         hasil["manipulasi"] = label
         hasil["harapan"] = "VALID" if jenis == "tanpa" else "INVALID"
-        s["uji"] = data_uji
+        s["uji"] = data_uji          # byte JPEG, atau citra di memori untuk manipulasi piksel
         s["riwayat"].append({"kombinasi": dipilih["info"]["kombinasi"], "verif_ms": hasil["waktu_ms"],
                              "hanya_verifikasi": True})
     return render_template("verifikasi.html", hasil=hasil, dipilih=dipilih, pesan=None,
@@ -347,8 +356,8 @@ def eksternal():
         berkas = request.files.get("citra")
         if not berkas or not berkas.filename:
             pesan = "Please choose an image file first."
-        elif Path(berkas.filename).suffix.lower() != ".png":
-            pesan = "Unsupported file format. Please upload a PNG file."      # UC-03 alur lain
+        elif Path(berkas.filename).suffix.lower() not in (".jpg", ".jpeg"):
+            pesan = "Unsupported file format. Please upload a JPEG file."     # UC-03 alur lain
         else:
             data = berkas.read()
             try:

@@ -1,9 +1,20 @@
-
-"""Manipulasi untuk skenario pengujian (Tabel 2 dan Tabel 3 di proposal).
+"""Manipulasi untuk skenario pengujian (manipulasi citra dan manipulasi tanda tangan).
 
 Semua parameter dibuat tetap (tidak acak) supaya pengujian bisa diulang dengan hasil yang sama.
-Nilai parameter di bawah ini masih usulan awal; sesuaikan dengan keputusan tim, lalu
-tuliskan nilainya di Bab III.
+Nilai parameter di bawah ini harus sama dengan yang ditulis di Bab III.
+
+Masukan setiap fungsi: citra bertanda tangan yang dibuka dengan citra.buka_citra() dari file JPEG,
+beserta teks paketnya.
+
+Cara hasil manipulasi diserahkan ke verifikasi:
+- Manipulasi PIKSEL (satu piksel, bercak, kecerahan/kontras, cropping):
+  hasilnya berupa citra di memori dengan paket asli dilampirkan (citra.lampirkan_paket).
+  Citra ini sengaja TIDAK disimpan ulang sebagai JPEG, karena kompresi JPEG akan ikut mengubah
+  piksel lain, sehingga yang diuji bukan lagi manipulasi yang dimaksud.
+- Kompresi ulang JPEG: citra benar-benar dikompres ulang (kualitas JPEG_KUALITAS), lalu paket
+  asli disisipkan kembali. Yang diuji: perubahan piksel akibat kompresi.
+- Manipulasi TANDA TANGAN: data gambar tidak disentuh; yang diubah hanya segmen paket di
+  file JPEG (dihapus, diubah, ditukar, atau diganti). Hasilnya berupa byte file JPEG.
 """
 
 import base64
@@ -33,19 +44,14 @@ def _ke_citra(arr, mode):
     return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), mode=mode)
 
 
-def _simpan_dengan_paket(img_baru, paket):
-    """Simpan ulang sebagai PNG dengan paket tanda tangan yang SAMA (agar yang diuji = perubahan piksel)."""
-    return citra.simpan_png(img_baru, paket)
-
-
-# ---------- Tabel 2: manipulasi citra ----------
+# ---------- Manipulasi citra ----------
 
 def ubah_satu_piksel(img, paket):
     arr = _ke_array(img)
     y, x = arr.shape[0] // 2, arr.shape[1] // 2
     delta = SATU_PIKSEL_DELTA if np.max(arr[y, x]) <= 255 - SATU_PIKSEL_DELTA else -SATU_PIKSEL_DELTA
     arr[y, x] = arr[y, x] + delta
-    return _simpan_dengan_paket(_ke_citra(arr, img.mode), paket)
+    return citra.lampirkan_paket(_ke_citra(arr, img.mode), paket)
 
 
 def tambah_bercak(img, paket):
@@ -54,7 +60,7 @@ def tambah_bercak(img, paket):
     y0, x0 = int(t * ROI_POSISI[1]), int(l * ROI_POSISI[0])
     y1, x1 = y0 + max(1, int(t * ROI_UKURAN[1])), x0 + max(1, int(l * ROI_UKURAN[0]))
     arr[y0:y1, x0:x1] = arr[y0:y1, x0:x1] + ROI_DELTA
-    return _simpan_dengan_paket(_ke_citra(arr, img.mode), paket)
+    return citra.lampirkan_paket(_ke_citra(arr, img.mode), paket)
 
 
 def ubah_kecerahan_kontras(img, paket):
@@ -63,20 +69,24 @@ def ubah_kecerahan_kontras(img, paket):
     lo, hi = arr.min(), arr.max()
     if hi > lo:
         arr = (arr - lo) * 255 // (hi - lo)   # contrast stretching
-    return _simpan_dengan_paket(_ke_citra(arr, img.mode), paket)
+    return citra.lampirkan_paket(_ke_citra(arr, img.mode), paket)
 
 
 def potong_tepi(img, paket):
     p = POTONG_PIKSEL
     lebar, tinggi = img.size
-    return _simpan_dengan_paket(img.crop((p, p, lebar - p, tinggi - p)), paket)
+    return citra.lampirkan_paket(img.crop((p, p, lebar - p, tinggi - p)), paket)
 
 
 def kompresi_ulang_jpeg(img, paket):
-    """Disimpan sebagai JPEG: nilai piksel berubah dan metadata PNG ikut hilang."""
+    """Citra dikompres ulang sebagai JPEG, lalu paket asli disisipkan kembali.
+
+    Paket sengaja dipertahankan agar yang diuji adalah perubahan piksel akibat kompresi,
+    bukan hilangnya paket (hilangnya paket sudah diuji di "Penghapusan paket").
+    """
     buf = io.BytesIO()
     img.save(buf, format="JPEG", quality=JPEG_KUALITAS)
-    return buf.getvalue()
+    return citra.sisipkan_paket(buf.getvalue(), paket)
 
 
 MANIPULASI_CITRA = {
@@ -88,7 +98,7 @@ MANIPULASI_CITRA = {
 }
 
 
-# ---------- Tabel 3: manipulasi tanda tangan ----------
+# ---------- Manipulasi tanda tangan ----------
 
 def _ubah_byte(b, posisi=0):
     b = bytearray(b)
@@ -108,23 +118,23 @@ def _paket_baru(paket, ubah_ecdsa=False, ubah_pqc=False):
 
 
 def hapus_paket(img, paket, **_):
-    return citra.simpan_png(img)
+    return citra.simpan_citra(img, None)
 
 
 def ubah_isi_paket(img, paket, **_):
-    return citra.simpan_png(img, _paket_baru(paket, ubah_ecdsa=True, ubah_pqc=True))
+    return citra.simpan_citra(img, _paket_baru(paket, ubah_ecdsa=True, ubah_pqc=True))
 
 
 def tukar_paket(img, paket, paket_citra_lain=None, **_):
-    return citra.simpan_png(img, paket_citra_lain)
+    return citra.simpan_citra(img, paket_citra_lain)
 
 
 def rusak_ecdsa_saja(img, paket, **_):
-    return citra.simpan_png(img, _paket_baru(paket, ubah_ecdsa=True))
+    return citra.simpan_citra(img, _paket_baru(paket, ubah_ecdsa=True))
 
 
 def rusak_pqc_saja(img, paket, **_):
-    return citra.simpan_png(img, _paket_baru(paket, ubah_pqc=True))
+    return citra.simpan_citra(img, _paket_baru(paket, ubah_pqc=True))
 
 
 def tandatangani_ulang_kunci_penyerang(img, paket, **_):
@@ -132,7 +142,7 @@ def tandatangani_ulang_kunci_penyerang(img, paket, **_):
     kunci_penyerang = hybrid.bangkitkan_kunci(kombinasi)
     nilai_hash = citra.hitung_hash(img)
     sig_e, sig_p = hybrid.tandatangani(nilai_hash, kunci_penyerang)
-    return citra.simpan_png(img, citra.buat_paket(kombinasi, sig_e, sig_p))
+    return citra.simpan_citra(img, citra.buat_paket(kombinasi, sig_e, sig_p))
 
 
 MANIPULASI_TANDA_TANGAN = {

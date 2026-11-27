@@ -1,71 +1,84 @@
-"""Alur lengkap tanda tangan dan verifikasi citra, beserta pengukurannya."""
+"""Alur lengkap tanda tangan dan verifikasi citra, beserta pengukuran waktunya.
+
+Dipakai bersama oleh simulator (app.py) dan script pengujian (uji_kinerja.py).
+Semua waktu dalam milidetik (ms), diukur dengan time.perf_counter().
+"""
 
 import time
 
-import psutil
-
 from core import citra, hybrid
 
-_PROSES = psutil.Process()
+
+def _ms(t_awal, t_akhir):
+    return (t_akhir - t_awal) * 1000
 
 
-def _memori():
-    """Memori yang sedang dipakai program ini (RSS), dalam byte."""
-    return _PROSES.memory_info().rss
+def ukur_keygen_rinci(kombinasi):
+    """Bangkitkan kunci; kembalikan (kunci, rincian waktu ECDSA, PQC, dan total)."""
+    rinci = {}
+    t0 = time.perf_counter()
+    kunci = hybrid.bangkitkan_kunci(kombinasi, waktu=rinci)
+    rinci["keygen_total_ms"] = _ms(t0, time.perf_counter())
+    return kunci, rinci
 
 
 def ukur_keygen(kombinasi):
-    """Membangkitkan kunci sambil mengukur waktunya (ms)."""
-    t0 = time.perf_counter()
-    kunci = hybrid.bangkitkan_kunci(kombinasi)
-    return kunci, (time.perf_counter() - t0) * 1000
+    """Versi lama (dipakai app.py): kembalikan (kunci, waktu total ms)."""
+    kunci, rinci = ukur_keygen_rinci(kombinasi)
+    return kunci, rinci["keygen_total_ms"]
 
 
 def tandatangani_citra(img, kunci):
-    """hash -> tanda tangan ECDSA dan PQC -> paket -> PNG. Mengembalikan (png_bytes, info)."""
-    mem0 = _memori()
+    """hash -> tanda tangan ECDSA dan PQC -> paket JSON -> disisipkan ke JPEG.
+
+    img harus dibuka dengan citra.buka_citra() dari file JPEG.
+    Mengembalikan (jpeg_bertanda_bytes, info).
+    """
     t0 = time.perf_counter()
 
     nilai_hash = citra.hitung_hash(img)
     t1 = time.perf_counter()
 
-    sig_ecdsa, sig_pqc = hybrid.tandatangani(nilai_hash, kunci)
+    rinci = {}
+    sig_ecdsa, sig_pqc = hybrid.tandatangani(nilai_hash, kunci, waktu=rinci)
     t2 = time.perf_counter()
 
     paket = citra.buat_paket(kunci["kombinasi"], sig_ecdsa, sig_pqc)
-    png_bertanda = citra.simpan_png(img, paket)
+    jpeg_bertanda = citra.simpan_citra(img, paket)
     t3 = time.perf_counter()
 
-    mem1 = _memori()
-
-    # PNG TANPA tanda tangan, sebagai pembanding pertambahan ukuran file
-    png_polos = citra.simpan_png(img)
+    # JPEG TANPA paket, sebagai pembanding pertambahan ukuran file (tidak ikut diukur waktunya)
+    ukuran_asli = citra.ukuran_tanpa_paket(img)
 
     info = {
         "kombinasi": kunci["kombinasi"],
-        "waktu_hash_ms": (t1 - t0) * 1000,
-        "waktu_tanda_tangan_ms": (t2 - t1) * 1000,
-        "waktu_simpan_ms": (t3 - t2) * 1000,
-        "waktu_total_ms": (t3 - t0) * 1000,
-        "memori_kb": max(mem1 - mem0, 0) / 1024,
+        "waktu_hash_ms": _ms(t0, t1),
+        "waktu_ttd_ecdsa_ms": rinci["ttd_ecdsa_ms"],      # ECDSA murni
+        "waktu_ttd_pqc_ms": rinci["ttd_pqc_ms"],          # pasca-kuantum murni
+        "waktu_tanda_tangan_ms": _ms(t1, t2),             # seluruh langkah tanda tangan hybrid
+        "waktu_simpan_ms": _ms(t2, t3),                   # buat paket JSON + sisipkan ke JPEG
+        "waktu_total_ms": _ms(t0, t3),                    # hash sampai JPEG bertanda jadi
         "ukuran_sig_ecdsa": len(sig_ecdsa),
         "ukuran_sig_pqc": len(sig_pqc),
         "ukuran_paket": len(paket),
-        "ukuran_png_polos": len(png_polos),
-        "ukuran_png_bertanda": len(png_bertanda),
-        "pertambahan_file": len(png_bertanda) - len(png_polos),
+        "ukuran_file_asli": ukuran_asli,
+        "ukuran_file_bertanda": len(jpeg_bertanda),
+        "pertambahan_file": len(jpeg_bertanda) - ukuran_asli,
     }
-    return png_bertanda, info
+    return jpeg_bertanda, info
 
 
 def verifikasi_citra(img, kunci_publik_per_kombinasi):
-    """Mengembalikan dict berisi 'status' (VALID / TIDAK VALID) dan 'alasan'.
+    """Mengembalikan dict berisi 'status' (VALID / TIDAK VALID), 'alasan', dan waktu.
 
     kunci_publik_per_kombinasi: {kode_kombinasi: kunci_publik}
+    Waktu rinci (baca+hash, ECDSA, PQC) bernilai None bila tanda tangan tidak sempat dicek.
     """
     t0 = time.perf_counter()
     hasil = {"status": "TIDAK VALID", "alasan": "", "kombinasi": None,
-             "ecdsa_cocok": None, "pqc_cocok": None}
+             "ecdsa_cocok": None, "pqc_cocok": None,
+             "waktu_baca_hash_ms": None, "waktu_cek_ttd_ms": None,
+             "waktu_verifikasi_ecdsa_ms": None, "waktu_verifikasi_pqc_ms": None}
 
     paket = citra.baca_paket(img)
 
@@ -86,7 +99,16 @@ def verifikasi_citra(img, kunci_publik_per_kombinasi):
                 hasil["alasan"] = "Kunci publik untuk kombinasi ini tidak tersedia."
             else:
                 nilai_hash = citra.hitung_hash(img)
-                cek = hybrid.verifikasi(nilai_hash, sig_ecdsa, sig_pqc, kunci_publik)
+                t1 = time.perf_counter()
+
+                rinci = {}
+                cek = hybrid.verifikasi(nilai_hash, sig_ecdsa, sig_pqc, kunci_publik, waktu=rinci)
+                t2 = time.perf_counter()
+
+                hasil["waktu_baca_hash_ms"] = _ms(t0, t1)          # baca paket + urai + hitung hash ulang
+                hasil["waktu_cek_ttd_ms"] = _ms(t1, t2)            # seluruh langkah cek dua tanda tangan
+                hasil["waktu_verifikasi_ecdsa_ms"] = rinci["verifikasi_ecdsa_ms"]
+                hasil["waktu_verifikasi_pqc_ms"] = rinci["verifikasi_pqc_ms"]
                 hasil["ecdsa_cocok"] = cek["ecdsa"]
                 hasil["pqc_cocok"] = cek["pqc"]
 
@@ -99,5 +121,5 @@ def verifikasi_citra(img, kunci_publik_per_kombinasi):
                     gagal = "ECDSA" if not cek["ecdsa"] else "pasca-kuantum"
                     hasil["alasan"] = f"Tanda tangan {gagal} tidak cocok."
 
-    hasil["waktu_verifikasi_ms"] = (time.perf_counter() - t0) * 1000
+    hasil["waktu_verifikasi_ms"] = _ms(t0, time.perf_counter())   # total verifikasi
     return hasil

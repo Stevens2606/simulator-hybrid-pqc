@@ -2,7 +2,7 @@
 
 Untuk setiap kombinasi hybrid dan setiap citra di sampel_90.csv:
   1. Skenario normal            : citra ditandatangani lalu diverifikasi  -> harapan VALID
-                                  + cek hash citra PNG bertanda tangan == hash citra asli
+                                  + cek hash citra JPEG bertanda tangan == hash citra asli
   2. Manipulasi citra (5 jenis) : piksel diubah lalu diverifikasi          -> harapan TIDAK VALID
   3. Manipulasi tanda tangan    : paket diubah lalu diverifikasi           -> harapan TIDAK VALID
      (5 jenis, 6 kasus)
@@ -65,17 +65,18 @@ def jalankan(batas=None):
         bertanda = []
         for d in sampel:
             img_asli = citra.buka_citra(str(d["path"]))
-            png, _ = proses.tandatangani_citra(img_asli, kunci)
-            img_ttd = citra.buka_citra(png)           # dibaca ulang dari byte (seolah diunduh)
+            jpeg_ttd, _ = proses.tandatangani_citra(img_asli, kunci)
+            img_ttd = citra.buka_citra(jpeg_ttd)      # dibaca ulang dari byte (seolah diunduh)
             sama = citra.hitung_hash(img_asli) == citra.hitung_hash(img_ttd)
             hash_sama[kombinasi][0] += sama
             hash_sama[kombinasi][1] += 1
-            bertanda.append((d, img_ttd, citra.baca_paket(img_ttd), sama))
+            bertanda.append((d, jpeg_ttd, img_ttd, citra.baca_paket(img_ttd), sama))
 
         # 2) jalankan semua kasus untuk setiap citra
-        for i, (d, img_ttd, paket, sama) in enumerate(bertanda):
-            paket_lain = bertanda[(i + 1) % len(bertanda)][2]
-            kasus = [("Normal", "Tanpa perubahan", citra.simpan_png(img_ttd, paket), "VALID")]
+        for i, (d, jpeg_ttd, img_ttd, paket, sama) in enumerate(bertanda):
+            paket_lain = bertanda[(i + 1) % len(bertanda)][3]
+            # skenario normal memakai file JPEG bertanda tangan apa adanya (tanpa disimpan ulang)
+            kasus = [("Normal", "Tanpa perubahan", jpeg_ttd, "VALID")]
             for jenis, fungsi in manipulasi.MANIPULASI_CITRA.items():
                 kasus.append(("Manipulasi citra", jenis, fungsi(img_ttd, paket), "TIDAK VALID"))
             for jenis, fungsi in manipulasi.MANIPULASI_TANDA_TANGAN.items():
